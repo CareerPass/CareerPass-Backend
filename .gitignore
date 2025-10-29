@@ -9,6 +9,8 @@
 
 src/main/resources/application.yml
 
+.idea/uiDesigner.xml
+
 .gradle
 /build/
 
