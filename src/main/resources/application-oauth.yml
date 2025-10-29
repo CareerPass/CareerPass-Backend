@@ -1,0 +1,14 @@
+spring:
+  security:
+    oauth2:
+      client:
+        registration:
+          google:
+            client-id: ${GOOGLE_CLIENT_ID}
+            client-secret: ${GOOGLE_CLIENT_SECRET}
+            scope: [openid, email, profile]
+            redirect-uri: "http://localhost:8080/login/oauth2/code/google"  # ✅ 고정
+            client-name: Google
+        provider:
+          google:
+            issuer-uri: https://accounts.google.com
