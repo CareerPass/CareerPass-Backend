@@ -4,6 +4,8 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.web.servlet.config.annotation.CorsRegistry;
+import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
 @Configuration
 public class SecurityConfig {
@@ -16,9 +18,25 @@ public class SecurityConfig {
 
                 // ✅ 접근 권한 설정
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/", "/health", "/logout-success").permitAll()
+                        .requestMatchers(
+                                "/",
+                                "/health",
+                                "/error",
+                                // ✅ Swagger 관련 URL 전부 허용
+                                "/v3/api-docs/**",
+                                "/swagger-ui/**",
+                                "/swagger-ui.html"
+                        ).permitAll()
+                        // 🔓 스모크 테스트용으로 User API만 임시 오픈
+                        .requestMatchers("/api/users/**").permitAll()
+
+                        // 나머지는 인증 필요
                         .anyRequest().authenticated()
                 )
+
+                // 폼로그인/기본인증은 사용 안 함 (우린 OAuth2만)
+                .formLogin(form -> form.disable())
+                .httpBasic(basic -> basic.disable())
 
                 // ✅ OAuth2 로그인 (구글 자동 플로우)
                 .oauth2Login(oauth -> oauth
@@ -34,5 +52,20 @@ public class SecurityConfig {
                 );
 
         return http.build();
+    }
+
+    // 개발용 CORS (Swagger → API 호출 허용)
+    @Bean
+    public WebMvcConfigurer corsConfigurer() {
+        return new WebMvcConfigurer() {
+            @Override
+            public void addCorsMappings(CorsRegistry registry) {
+                registry.addMapping("/**")
+                        .allowedOrigins("http://localhost:8080")
+                        .allowedMethods("GET","POST","PUT","DELETE","PATCH","OPTIONS")
+                        .allowedHeaders("*")
+                        .allowCredentials(true);
+            }
+        };
     }
 }

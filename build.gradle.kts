@@ -35,10 +35,17 @@ dependencies {
     annotationProcessor("org.projectlombok:lombok")
     testImplementation("org.springframework.boot:spring-boot-starter-test")
     testImplementation("org.springframework.security:spring-security-test")
+    testCompileOnly("org.projectlombok:lombok")
+    testAnnotationProcessor("org.projectlombok:lombok")
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 
     //구글
     implementation("org.springframework.boot:spring-boot-starter-oauth2-client")
+
+    //mysql
+    implementation("com.mysql:mysql-connector-j")
+    //swagger
+    implementation("org.springdoc:springdoc-openapi-starter-webmvc-ui:2.6.0")
 }
 
 tasks.withType<Test> {
