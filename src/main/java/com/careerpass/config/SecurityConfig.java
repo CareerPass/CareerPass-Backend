@@ -33,6 +33,8 @@ public class SecurityConfig {
                         .requestMatchers("/api/users/**").permitAll()
                         // 🔓 자기소개서 저장/조회 임시 오픈 (Swagger 테스트용)
                         .requestMatchers("/api/introductions/**").permitAll() // ADD
+                        // 🔓 피드백 저장/조회 임시 오픈 (Swagger 테스트용)
+                        .requestMatchers("/api/feedbacks/**").permitAll() // ADD
 
                         // 나머지는 인증 필요
                         .anyRequest().authenticated()
