@@ -22,17 +22,11 @@ public class User {
     @Column(name = "nickname", length = 16, nullable = false)
     private String nickname;
 
-    @Column(name = "grade", nullable = true)
-    private Long grade;
-
     @Column(name = "major", length = 20, nullable = true)
     private String major;
 
     @Column(name = "target_job", length = 20, nullable = true)
     private String targetJob;
-
-    @Column(name = "student_number", nullable = true)
-    private Long studentNumber;
 
     @Column(name = "social_type", nullable = false)
     private SocialType socialType;
