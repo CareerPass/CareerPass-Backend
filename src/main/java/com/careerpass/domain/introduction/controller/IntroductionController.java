@@ -37,7 +37,7 @@ public class IntroductionController {
 
     // 사용자별 목록 조회
     @GetMapping
-    public ResponseEntity<List<Response>> listByUser(@RequestParam @NotNull(message = "userId는 필수입니다.") Long userId) {
+    public ResponseEntity<List<Response>> listByUser(@RequestParam @NotNull(message = "userId는 필수입니다.") @Positive(message = "userId는 1 이상이어야 합니다.") Long userId) {
         return ResponseEntity.ok(introductionService.listByUser(userId));
     }
 }
