@@ -4,6 +4,8 @@ import com.careerpass.domain.feedback.dto.FeedbackDtos.CreateRequest;
 import com.careerpass.domain.feedback.dto.FeedbackDtos.Response;
 import com.careerpass.domain.feedback.service.FeedbackService;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.Positive;
+import org.springframework.validation.annotation.Validated;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -11,6 +13,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
+@Validated
 @RestController
 @RequiredArgsConstructor
 @RequestMapping("/api/feedbacks")
@@ -26,7 +29,7 @@ public class FeedbackController {
 
     // 단건 조회
     @GetMapping("/{id}")
-    public ResponseEntity<Response> get(@PathVariable Long id) {
+    public ResponseEntity<Response> get(@PathVariable @Positive Long id) {
         return ResponseEntity.ok(feedbackService.get(id));
     }
 
