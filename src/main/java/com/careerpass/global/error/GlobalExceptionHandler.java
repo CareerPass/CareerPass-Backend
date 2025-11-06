@@ -57,8 +57,9 @@ public class GlobalExceptionHandler {
     // 도메인: introduction
     @ExceptionHandler(IntroductionNotFoundException.class)
     public ResponseEntity<ErrorResponse> handleIntroNotFound(IntroductionNotFoundException e) {
-        return ResponseEntity.status(ErrorCode.INTRODUCTION_NOT_FOUND.getStatus())
-                .body(ErrorResponse.of(ErrorCode.INTRODUCTION_NOT_FOUND));
+        return ResponseEntity
+                .status(ErrorCode.INTRODUCTION_NOT_FOUND.getStatus())
+                .body(ErrorResponse.of(ErrorCode.INTRODUCTION_NOT_FOUND, e.getMessage()));
     }
 
     // 최종 안전망
