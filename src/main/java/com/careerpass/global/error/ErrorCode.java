@@ -10,7 +10,9 @@ public enum ErrorCode {
     METHOD_NOT_ALLOWED(HttpStatus.METHOD_NOT_ALLOWED, "C004", "허용되지 않은 HTTP 메서드입니다."),
     INTERNAL_SERVER_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "C999", "서버 오류가 발생했습니다."),
     // introduction
-    INTRODUCTION_NOT_FOUND(HttpStatus.NOT_FOUND, "I001", "자기소개서를 찾을 수 없습니다.");
+    INTRODUCTION_NOT_FOUND(HttpStatus.NOT_FOUND, "I001", "자기소개서를 찾을 수 없습니다."),
+    // feedback
+    FEEDBACK_NOT_FOUND(HttpStatus.NOT_FOUND, "F001", "해당 피드백을 찾을 수 없습니다.");
 
     private final HttpStatus status;
     private final String code;

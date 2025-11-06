@@ -37,7 +37,7 @@ public class FeedbackService {
     @Transactional(readOnly = true)
     public Response get(Long id) {
         Feedback f = feedbackRepository.findById(id)
-                .orElseThrow(() -> new FeedbackNotFoundException(id));
+                .orElseThrow(() -> new com.careerpass.domain.feedback.exception.FeedbackNotFoundException(id));
         return toDto(f);
     }
 
