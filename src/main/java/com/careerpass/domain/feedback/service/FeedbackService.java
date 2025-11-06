@@ -4,7 +4,7 @@ import com.careerpass.domain.feedback.dto.FeedbackDtos.CreateRequest;
 import com.careerpass.domain.feedback.dto.FeedbackDtos.Response;
 import com.careerpass.domain.feedback.entity.Feedback;
 import com.careerpass.domain.feedback.repository.FeedbackRepository;
-import jakarta.persistence.EntityNotFoundException;
+import com.careerpass.domain.feedback.exception.FeedbackNotFoundException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -37,7 +37,7 @@ public class FeedbackService {
     @Transactional(readOnly = true)
     public Response get(Long id) {
         Feedback f = feedbackRepository.findById(id)
-                .orElseThrow(() -> new EntityNotFoundException("Feedback not found"));
+                .orElseThrow(() -> new FeedbackNotFoundException(id));
         return toDto(f);
     }
 
