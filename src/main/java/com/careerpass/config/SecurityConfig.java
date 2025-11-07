@@ -13,6 +13,8 @@ public class SecurityConfig {
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http
+                .cors(cors -> {}) // ADD: CORS 설정 사용하도록 활성화
+
                 // 🔒 CSRF (API 위주면 disable)
                 .csrf(csrf -> csrf.disable())
 
@@ -29,6 +31,10 @@ public class SecurityConfig {
                         ).permitAll()
                         // 🔓 스모크 테스트용으로 User API만 임시 오픈
                         .requestMatchers("/api/users/**").permitAll()
+                        // 🔓 자기소개서 저장/조회 임시 오픈 (Swagger 테스트용)
+                        .requestMatchers("/api/introductions/**").permitAll() // ADD
+                        // 🔓 피드백 저장/조회 임시 오픈 (Swagger 테스트용)
+                        .requestMatchers("/api/feedbacks/**").permitAll() // ADD
 
                         // 나머지는 인증 필요
                         .anyRequest().authenticated()
@@ -54,14 +60,17 @@ public class SecurityConfig {
         return http.build();
     }
 
-    // 개발용 CORS (Swagger → API 호출 허용)
+    // 개발용 CORS (Swagger/프론트 → API 호출 허용)
     @Bean
     public WebMvcConfigurer corsConfigurer() {
         return new WebMvcConfigurer() {
             @Override
             public void addCorsMappings(CorsRegistry registry) {
                 registry.addMapping("/**")
-                        .allowedOrigins("http://localhost:8080")
+                        .allowedOrigins(
+                                "http://localhost:8080",
+                                "http://localhost:3000" // ADD: 프론트 로컬
+                        )
                         .allowedMethods("GET","POST","PUT","DELETE","PATCH","OPTIONS")
                         .allowedHeaders("*")
                         .allowCredentials(true);
