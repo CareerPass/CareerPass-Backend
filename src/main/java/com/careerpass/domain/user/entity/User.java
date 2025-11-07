@@ -28,9 +28,10 @@ public class User {
     @Column(name = "target_job", length = 20, nullable = true)
     private String targetJob;
 
-    @Column(name = "social_type", nullable = false)
+    @Enumerated(EnumType.STRING)
+    @Column(name = "social_type", nullable = false, length = 20)
     private SocialType socialType;
 
-    @Column(name = "social_number", nullable = false)
+    @Column(name = "social_number", nullable = false, length = 64)
     private String socialNumber;
 }
