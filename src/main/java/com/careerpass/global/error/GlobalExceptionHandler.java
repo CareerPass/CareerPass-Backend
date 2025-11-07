@@ -62,6 +62,15 @@ public class GlobalExceptionHandler {
                 .body(ErrorResponse.of(ErrorCode.INTRODUCTION_NOT_FOUND, e.getMessage()));
     }
 
+    // 도메인: feedback
+    @ExceptionHandler(com.careerpass.domain.feedback.exception.FeedbackNotFoundException.class)
+    public org.springframework.http.ResponseEntity<ErrorResponse> handleFeedbackNotFound(
+            com.careerpass.domain.feedback.exception.FeedbackNotFoundException e) {
+        return org.springframework.http.ResponseEntity
+                .status(ErrorCode.FEEDBACK_NOT_FOUND.getStatus())
+                .body(ErrorResponse.of(ErrorCode.FEEDBACK_NOT_FOUND));
+    }
+
     // 최종 안전망
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ErrorResponse> handleEtc(Exception e) {
