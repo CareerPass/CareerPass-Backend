@@ -9,6 +9,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import com.careerpass.domain.user.exception.UserNotFoundException;
+import com.careerpass.domain.user.exception.DuplicateEmailException;
 
 import java.util.List;
 import java.util.UUID;
@@ -33,7 +35,7 @@ public class UserService {
      */
     public ProfileResponse create(CreateUserRequest req) {
         if (userRepository.existsByEmail(req.email())) {
-            throw new DuplicateKeyException("Email already exists");
+            throw new DuplicateEmailException(req.email());
         }
 
         User user = new User();
@@ -58,7 +60,7 @@ public class UserService {
     public ProfileResponse getById(Long id) {
         return userRepository.findById(id)
                 .map(this::toDto)
-                .orElseThrow(() -> new IllegalArgumentException("User not found"));
+                .orElseThrow(() -> new UserNotFoundException(id));
     }
 
     /**

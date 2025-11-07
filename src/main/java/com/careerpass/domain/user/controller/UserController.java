@@ -6,8 +6,11 @@ import com.careerpass.domain.user.dto.ProfileResponse;
 import com.careerpass.domain.user.service.UserService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.Positive;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
 import java.net.URI;
@@ -19,6 +22,7 @@ import java.util.List;
  * - Swagger용 어노테이션 유지
  * - 학습 프로필(이름, 이메일, 전공, 목표직무) 관련 CRUD 담당
  */
+@Validated
 @Tag(name = "User API", description = "User API for managing user profile (name, email, major, target job)")
 @RestController
 @RequestMapping("/api/users")
@@ -33,7 +37,7 @@ public class UserController {
      */
     @Operation(summary = "Create a new user (email must be unique)")
     @PostMapping
-    public ResponseEntity<ProfileResponse> createUser(@RequestBody CreateUserRequest req) {
+    public ResponseEntity<ProfileResponse> createUser(@RequestBody @Valid CreateUserRequest req) {
         ProfileResponse created = userService.create(req);
         return ResponseEntity
                 .created(URI.create("/api/users/" + created.id()))
@@ -54,7 +58,7 @@ public class UserController {
      */
     @Operation(summary = "Get user by ID")
     @GetMapping("/{id}")
-    public ResponseEntity<ProfileResponse> getUserById(@PathVariable Long id) {
+    public ResponseEntity<ProfileResponse> getUserById(@PathVariable @Positive(message="id는 양수여야 합니다.") Long id) {
         try {
             return ResponseEntity.ok(userService.getById(id));
         } catch (IllegalArgumentException e) {
