@@ -11,6 +11,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.UUID;
 
 /**
  * UserService
@@ -40,6 +41,10 @@ public class UserService {
         user.setEmail(req.email());
         user.setMajor(req.major());
         user.setTargetJob(req.targetJob());
+
+        // 소셜 정보가 아직 없으므로 로컬 기본값 채워서 NOT NULL 회피
+        user.setSocialType(com.careerpass.domain.user.entity.SocialType.GOOGLE);
+        user.setSocialNumber("LOCAL-" + UUID.randomUUID().toString()); // 임시 식별자
 
         userRepository.save(user);
         return toDto(user);
