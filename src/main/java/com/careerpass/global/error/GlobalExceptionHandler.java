@@ -71,6 +71,21 @@ public class GlobalExceptionHandler {
                 .body(ErrorResponse.of(ErrorCode.FEEDBACK_NOT_FOUND));
     }
 
+    // 도메인: user
+    // ✅ [user] 존재하지 않을 때 404
+    @ExceptionHandler(com.careerpass.domain.user.exception.UserNotFoundException.class)
+    public ResponseEntity<ErrorResponse> handleUserNotFound(RuntimeException e) {
+        return ResponseEntity.status(ErrorCode.USER_NOT_FOUND.getStatus())
+                .body(ErrorResponse.of(ErrorCode.USER_NOT_FOUND));
+    }
+
+    // ✅ [user] 이메일 중복 409
+    @ExceptionHandler(com.careerpass.domain.user.exception.DuplicateEmailException.class)
+    public ResponseEntity<ErrorResponse> handleDuplicateEmail(RuntimeException e) {
+        return ResponseEntity.status(ErrorCode.DUPLICATE_EMAIL.getStatus())
+                .body(ErrorResponse.of(ErrorCode.DUPLICATE_EMAIL));
+    }
+
     // 최종 안전망
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ErrorResponse> handleEtc(Exception e) {
