@@ -48,6 +48,9 @@ dependencies {
     //swagger
     implementation("org.springdoc:springdoc-openapi-starter-webmvc-ui:2.7.0")
     implementation("org.springframework.boot:spring-boot-starter-validation")
+
+    //voice ai - WebClient
+    implementation("org.springframework.boot:spring-boot-starter-webflux")
 }
 
 tasks.withType<Test> {
