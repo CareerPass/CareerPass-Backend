@@ -32,9 +32,11 @@ public class SecurityConfig {
                         // 🔓 스모크 테스트용으로 User API만 임시 오픈
                         .requestMatchers("/api/users/**").permitAll()
                         // 🔓 자기소개서 저장/조회 임시 오픈 (Swagger 테스트용)
-                        .requestMatchers("/api/introductions/**").permitAll() // ADD
+                        .requestMatchers("/api/introductions/**").permitAll()
                         // 🔓 피드백 저장/조회 임시 오픈 (Swagger 테스트용)
-                        .requestMatchers("/api/feedbacks/**").permitAll() // ADD
+                        .requestMatchers("/api/feedbacks/**").permitAll()
+                        // 🔓 AI 음성면접 API 오픈
+                        .requestMatchers("/api/interviews/voice/**").permitAll()
 
                         // 나머지는 인증 필요
                         .anyRequest().authenticated()

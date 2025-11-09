@@ -2,6 +2,7 @@
 <project version="4">
   <component name="ProjectModuleManager">
     <modules>
+      <module fileurl="file://$PROJECT_DIR$/.idea/CareerPass.iml" filepath="$PROJECT_DIR$/.idea/CareerPass.iml" />
       <module fileurl="file://$PROJECT_DIR$/.idea/modules/-1146148803/career-pass.main.iml" filepath="$PROJECT_DIR$/.idea/modules/-1146148803/career-pass.main.iml" />
       <module fileurl="file://$PROJECT_DIR$/.idea/modules/-1146148803/career-pass.test.iml" filepath="$PROJECT_DIR$/.idea/modules/-1146148803/career-pass.test.iml" />
     </modules>
