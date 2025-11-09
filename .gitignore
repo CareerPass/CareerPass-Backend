@@ -83,4 +83,8 @@ $RECYCLE.BIN/
 # Windows shortcuts
 *.lnk
 
+# IntelliJ
+.idea/
+*.iml
+
 # End of https://www.toptal.com/developers/gitignore/api/react,macos,windows.idea/
