@@ -6,6 +6,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
+import reactor.core.publisher.Mono;
 
 @RestController
 @RequiredArgsConstructor
@@ -15,9 +16,9 @@ public class AIController {
     private final AIService aiService;
 
     @PostMapping(value = "/analyze", consumes = {"multipart/form-data"})
-    public ResponseEntity<VoiceAnalyzeResponse> analyze(@RequestPart("file") MultipartFile file) {
-        VoiceAnalyzeResponse res = aiService.analyzeVoice(file);
-        return ResponseEntity.ok(res);
+    public Mono<ResponseEntity<VoiceAnalyzeResponse>> analyze(@RequestPart("file") MultipartFile file) {
+        return aiService.analyzeVoice(file)
+                .map(ResponseEntity::ok);
     }
 
     @GetMapping("/health")
