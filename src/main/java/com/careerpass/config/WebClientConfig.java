@@ -14,4 +14,12 @@ public class WebClientConfig {
                 .baseUrl("http://localhost:5001")  // FastAPI 서버 주소
                 .build();
     }
+
+    // ✅ 면접 질문 생성 Flask 서버(기본: http://localhost:5000) 호출 전용 WebClient
+    @Bean
+    public WebClient questionGenWebClient(WebClient.Builder builder) {
+        return builder
+                .baseUrl("http://localhost:5000") // 필요하면 yml로 뺄 수 있음
+                .build();
+    }
 }
