@@ -1,5 +1,6 @@
 package com.careerpass.domain.interview.controller;
 
+import com.careerpass.domain.interview.dto.InterviewResponseDto;
 import com.careerpass.domain.interview.entity.Interview;
 import com.careerpass.domain.interview.service.InterviewService;
 import lombok.RequiredArgsConstructor;
@@ -44,7 +45,7 @@ public class InterviewController {
             consumes = MediaType.MULTIPART_FORM_DATA_VALUE,
             produces = MediaType.APPLICATION_JSON_VALUE
     )
-    public ResponseEntity<Interview> registerInterview(
+    public ResponseEntity<InterviewResponseDto> registerInterview(
             @RequestPart("file") MultipartFile file,
             @RequestParam("userId") @NotNull @Positive Long userId,
             @RequestParam("jobApplied") @NotBlank String jobApplied
@@ -58,12 +59,13 @@ public class InterviewController {
         try {
             // 2) 서비스 호출 (음성 파일 저장 및 인터뷰 등록)
             Interview savedInterview = interviewService.createInterview(userId, jobApplied, file);
+            var dto = com.careerpass.domain.interview.dto.InterviewResponseDto.from(savedInterview);
 
             // 3) Location 헤더 제공 (리소스 추적 편의)
             return ResponseEntity
                     .status(HttpStatus.CREATED)
                     .header("Location", "/interview/" + savedInterview.getId())
-                    .body(savedInterview);
+                    .body(dto);
 
         } catch (IOException e) {
             log.error("IO error during interview upload: {}", e.getMessage(), e);

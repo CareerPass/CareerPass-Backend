@@ -23,6 +23,7 @@ public class InterviewService {
 
     private final InterviewJpaRepository interviewJpaRepository;
     private final S3Service s3Service;
+    // private final AIService aiService; // ✅ 향후 자동 분석 연동용 (지금은 주석 처리)
 
     // =========================
     // 방법 1) 기존 컨트롤러 호환용
@@ -50,7 +51,22 @@ public class InterviewService {
                 .requestTime(LocalDateTime.now())
                 .build();
 
-        return interviewJpaRepository.save(interview);
+
+        Interview saved = interviewJpaRepository.save(interview);
+
+        // ✅ (선택) 자동 AI 분석 연동
+        /*
+        try {
+            AnalysisResultDto analysis = aiService.analyzeVoice(
+                new AnswerUploadMetaDto(saved.getId(), null), audioFile);
+            saved.setStatus(Status.FINISH);
+            interviewJpaRepository.save(saved);
+        } catch (Exception e) {
+            log.warn("AI 분석 실패 (저장만 완료): {}", e.getMessage());
+        }
+        */
+
+        return saved;
     }
 
     // ===========================================
@@ -87,13 +103,17 @@ public class InterviewService {
     // ==============
     private void validateAudio(MultipartFile audioFile) {
         if (audioFile == null || audioFile.isEmpty()) {
-            throw new IllegalArgumentException("empty audio file");
+            throw new IllegalArgumentException("❌ 업로드된 음성 파일이 비어 있습니다.");
         }
-        // 필요하면 용량/콘텐츠 타입 검증 추가:
-        // if (audioFile.getSize() > 25L * 1024 * 1024) { ... }
-        // if (!Objects.equals(audioFile.getContentType(), "audio/wav")) { ... }
+
         if (Objects.isNull(audioFile.getOriginalFilename())) {
-            log.warn("audio file has no original filename");
+            log.warn("⚠️ audio file has no original filename");
+        }
+
+        // ⚠️ 필요 시 파일 형식 제한 추가
+        String filename = audioFile.getOriginalFilename();
+        if (filename != null && !filename.matches(".*\\.(wav|mp3|m4a)$")) {
+            throw new IllegalArgumentException("❌ 지원하지 않는 오디오 형식입니다. (허용: wav, mp3, m4a)");
         }
     }
 }
