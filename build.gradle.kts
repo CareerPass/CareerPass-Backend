@@ -7,6 +7,7 @@ plugins {
 group = "com"
 version = "0.0.1-SNAPSHOT"
 description = "career-pass-backend"
+val nettyVersion = "4.1.111.Final"
 
 java {
     toolchain {
@@ -25,6 +26,15 @@ repositories {
 }
 
 dependencies {
+    // ✅ macOS용 Netty DNS 네이티브 라이브러리
+    val isMac = System.getProperty("os.name").lowercase().contains("mac")
+    val isArm = System.getProperty("os.arch").lowercase().contains("aarch64") ||
+            System.getProperty("os.arch").lowercase().contains("arm64")
+
+    if (isMac) {
+        runtimeOnly("io.netty:netty-resolver-dns-native-macos:$nettyVersion:${if (isArm) "osx-aarch_64" else "osx-x86_64"}")
+    }
+
     implementation("org.springframework.boot:spring-boot-starter-security")
     implementation("org.springframework.boot:spring-boot-starter-web")
     implementation("org.springframework.boot:spring-boot-starter-web-services")
