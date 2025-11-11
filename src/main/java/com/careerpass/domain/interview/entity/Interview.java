@@ -22,6 +22,7 @@ public class Interview {
     @Column(name = "file_url", length = 255, nullable = false)
     private String fileUrl;
 
+    @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false)
     private Status status;
 
