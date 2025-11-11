@@ -111,4 +111,61 @@ class AIServiceTest {
             assertTrue(res.getFeedback().contains("구체적 사례"));
         }
     }
+
+    @Test
+    @DisplayName("🟥 FastAPI 400 → RuntimeException 매핑")
+    void ai_400_mapsRuntime() throws Exception {
+        try (MockWebServer server = new MockWebServer()) {
+            server.enqueue(new MockResponse()
+                    .setResponseCode(400)
+                    .setHeader("Content-Type", "application/json")
+                    .setBody("{\"detail\":\"bad input\"}"));
+            server.start();
+
+            AIService svc = newService(server.url("/").toString());
+            MultipartFile ok = new MockMultipartFile("file","v.wav","audio/wav","x".getBytes());
+
+            RuntimeException ex = assertThrows(RuntimeException.class,
+                    () -> svc.analyzeVoice(meta(1,1), ok));
+            assertTrue(ex.getMessage().contains("AI 서버"));
+        }
+    }
+
+    @Test
+    @DisplayName("🟥 응답 JSON 필수 필드 누락 → RuntimeException")
+    void responseMissingFields_throws() throws Exception {
+        try (MockWebServer server = new MockWebServer()) {
+            server.enqueue(new MockResponse()
+                    .setResponseCode(200)
+                    .setHeader("Content-Type", "application/json")
+                    .setBody("{\"score\": 9.1}")); // questionId/answerText 없음
+            server.start();
+
+            AIService svc = newService(server.url("/").toString());
+            MultipartFile ok = new MockMultipartFile("file","v.wav","audio/wav","x".getBytes());
+
+            RuntimeException ex = assertThrows(RuntimeException.class,
+                    () -> svc.analyzeVoice(meta(1,1), ok));
+            assertTrue(ex.getMessage().contains("응답") || ex.getMessage().contains("불완전"));
+        }
+    }
+
+    @Test
+    @DisplayName("🟥 FastAPI 413 → RuntimeException 매핑(파일 너무 큼)")
+    void ai_413_mapsRuntime() throws Exception {
+        try (MockWebServer server = new MockWebServer()) {
+            server.enqueue(new MockResponse()
+                    .setResponseCode(413)
+                    .setHeader("Content-Type", "application/json")
+                    .setBody("{\"detail\":\"too large\"}"));
+            server.start();
+
+            AIService svc = newService(server.url("/").toString());
+            MultipartFile ok = new MockMultipartFile("file","v.wav","audio/wav","x".getBytes());
+
+            RuntimeException ex = assertThrows(RuntimeException.class,
+                    () -> svc.analyzeVoice(meta(1,1), ok));
+            assertTrue(ex.getMessage().contains("파일이 너무 큽니다") || ex.getMessage().contains("AI 서버"));
+        }
+    }
 }

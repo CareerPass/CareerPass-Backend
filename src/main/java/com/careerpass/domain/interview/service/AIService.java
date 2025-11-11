@@ -58,7 +58,7 @@ public class AIService {
 
         try {
             // ✅ FastAPI 서버로 요청 (multipart/form-data)
-            return aiWebClient.post()
+            AnalysisResultDto dto = aiWebClient.post()
                     .uri("/analyze")
                     .contentType(MediaType.MULTIPART_FORM_DATA)
                     .body(BodyInserters.fromMultipartData(multipart))
@@ -66,6 +66,15 @@ public class AIService {
                     .bodyToMono(AnalysisResultDto.class)
                     .block(); // 동기 변환
 
+            // ✅ 필수값 검증 (누락 시 예외 던져서 테스트 통과)
+            if (dto == null
+                    || dto.getQuestionId() == null
+                    || dto.getAnswerText() == null
+                    || dto.getScore() == null) {
+                throw new RuntimeException("❌ AI 응답이 불완전합니다.");
+            }
+
+            return dto;
         } catch (WebClientResponseException ex) {
             int status = ex.getStatusCode().value();
             String msg = switch (status) {
@@ -102,4 +111,6 @@ public class AIService {
         headers.setContentDispositionFormData("file", file.getOriginalFilename());
         return new org.springframework.http.HttpEntity<>(file.getResource(), headers);
     }
+
+
 }
