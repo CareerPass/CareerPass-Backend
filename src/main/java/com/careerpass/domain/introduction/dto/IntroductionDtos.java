@@ -4,12 +4,14 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.PastOrPresent;
 import jakarta.validation.constraints.Size;
+import lombok.Builder;
 
 import java.time.LocalDateTime;
 
 public class IntroductionDtos {
 
-    // 저장 요청
+    // 🟢 저장 요청 DTO
+    @Builder
     public record CreateRequest(
             @NotNull(message = "userId는 필수입니다.")
             Long userId,
@@ -21,17 +23,25 @@ public class IntroductionDtos {
             @NotBlank(message = "자기소개 내용(introText)은 비어 있을 수 없습니다.")
             String introText,
 
-            // 클라이언트에서 시간 안 줄 수도 있으니 옵션(널이면 서버에서 now()로 대체)
+            // 클라이언트에서 생략 가능하도록 null 허용
             @PastOrPresent(message = "제출 시간(submissionTime)은 과거 또는 현재여야 합니다.")
             LocalDateTime submissionTime
     ) {}
 
-    // 단건 조회/리스트 응답
+    // 🟢 응답 DTO
+    @Builder
     public record Response(
             Long id,
             Long userId,
             String jobApplied,
             String introText,
             LocalDateTime submissionTime
+    ) {}
+
+    // 🟢 (선택) 간단 응답: 생성 완료 시 반환용
+    @Builder
+    public record CreateResponse(
+            Long introductionId,
+            int introLength
     ) {}
 }
