@@ -5,6 +5,7 @@ import com.careerpass.global.error.ErrorResponse.FieldError;
 import jakarta.validation.ConstraintViolationException;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.web.HttpMediaTypeNotSupportedException;
 import org.springframework.web.HttpRequestMethodNotSupportedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.MissingServletRequestParameterException;
@@ -84,6 +85,31 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ErrorResponse> handleDuplicateEmail(RuntimeException e) {
         return ResponseEntity.status(ErrorCode.DUPLICATE_EMAIL.getStatus())
                 .body(ErrorResponse.of(ErrorCode.DUPLICATE_EMAIL));
+    }
+
+    // 도메인: interview
+    // 400: 잘못된 요청 (파라미터 검증 실패, 빈 파일 등)
+    @ExceptionHandler(IllegalArgumentException.class)
+    public ResponseEntity<String> handleBadRequest(IllegalArgumentException e) {
+        return ResponseEntity.badRequest().body(e.getMessage());
+    }
+
+    // 400: @Validated 바디/파라미터 검증 실패
+    @ExceptionHandler(MethodArgumentNotValidException.class)
+    public ResponseEntity<String> handleValidation(MethodArgumentNotValidException e) {
+        return ResponseEntity.badRequest().body("요청 값이 올바르지 않습니다.");
+    }
+
+    // 415: Content-Type 틀림 (multipart/form-data 아님)
+    @ExceptionHandler(HttpMediaTypeNotSupportedException.class)
+    public ResponseEntity<String> handleUnsupported(HttpMediaTypeNotSupportedException e) {
+        return ResponseEntity.status(415).body("지원하지 않는 Content-Type 입니다.");
+    }
+
+    // 500: 그 외 전부
+    @ExceptionHandler(Exception.class)
+    public ResponseEntity<String> handleUnknown(Exception e) {
+        return ResponseEntity.status(500).body("서버 오류");
     }
 
     // 최종 안전망
