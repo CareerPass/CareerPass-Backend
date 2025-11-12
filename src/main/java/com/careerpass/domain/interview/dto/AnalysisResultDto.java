@@ -1,36 +1,30 @@
 package com.careerpass.domain.interview.dto;
 
-import com.fasterxml.jackson.annotation.JsonInclude;
-import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.*;
-import java.util.List;
 
-@Getter
-@Setter
+/**
+ * 🤖 AI 음성 분석 결과 DTO
+ * - Whisper/OpenAI 등 외부 AI 분석 서버의 응답을 받아
+ *   프론트로 전달하기 위한 데이터 구조
+ */
+@Data
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-@JsonInclude(JsonInclude.Include.NON_NULL)
 public class AnalysisResultDto {
 
-    @JsonProperty("questionId")
-    private Long questionId;
+    /** 분석된 질문 ID */
+    private String questionId;
 
-    @JsonProperty("question")
-    private String question;          // 원문 질문(프론트 표시용)
+    /** 전사된 답변 텍스트 */
+    private String answerText;
 
-    @JsonProperty("answerText")
-    private String answerText;        // 최종 텍스트(전사 + 정제)
+    /** 답변의 종합 점수 (0~100 등) */
+    private Double score;
 
-    @JsonProperty("score")
-    private Double score;             // 0.0 ~ 10.0 등급
+    /** AI가 제공한 피드백 문장 */
+    private String feedback;
 
-    @JsonProperty("feedback")
-    private String feedback;          // 개선 코멘트
-
-    @JsonProperty("durationMs")
-    private Long durationMs;          // 답변 시간
-
-    @JsonProperty("keywords")
-    private List<String> keywords;    // 포함/미포함 핵심 키워드
+    /** 답변 길이 (초 단위) */
+    private Double durationSec;
 }

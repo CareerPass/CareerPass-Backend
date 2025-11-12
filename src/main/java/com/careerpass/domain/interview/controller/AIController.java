@@ -12,6 +12,11 @@ import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
+/**
+ * 🤖 AI 분석 전용 컨트롤러
+ * - 파일을 받아 FastAPI로 전송하고 분석 결과(전사+점수+피드백)를 반환
+ * - 저장/DB관리는 InterviewController가 담당
+ */
 @RestController
 @RequiredArgsConstructor
 @RequestMapping("/api/interview/voice")
@@ -21,12 +26,6 @@ public class AIController {
 
     private final AIService aiService;
 
-    /**
-     * 🎧 음성 분석(전사+평가 통합) 엔드포인트
-     * - multipart/form-data 로 meta(JSON) + file(audio/*) 수신
-     * - meta: { interviewId, questionId }  (AnswerUploadMetaDto)
-     * - 응답: AnalysisResultDto (점수/피드백 등)
-     */
     @PostMapping(
             value = "/analyze",
             consumes = MediaType.MULTIPART_FORM_DATA_VALUE,
@@ -36,18 +35,15 @@ public class AIController {
             @Valid @RequestPart("meta") AnswerUploadMetaDto meta,
             @RequestPart("file") MultipartFile file
     ) {
-        // 🔸 1. 파일 기본 검증 (서비스에서 예외 던지지만 이중 방어)
+        // 컨트롤러 레벨 최소 방어 (서비스에서도 재검증)
         if (file == null || file.isEmpty()) {
-            log.warn("파일이 비어 있음 (meta={})", meta);
+            log.warn("빈 파일 업로드 요청. meta={}", meta);
             return ResponseEntity.badRequest().build();
         }
 
-        // 🔸 2. 분석 실행
         AnalysisResultDto result = aiService.analyzeVoice(meta, file);
-
-        // 🔸 3. 결과 검증 (예외 처리와 분리)
         if (result == null) {
-            log.error("AI 분석 결과가 null 반환됨 (meta={})", meta);
+            log.error("AI 분석 결과 null 반환. meta={}", meta);
             return ResponseEntity.internalServerError().build();
         }
 
@@ -57,10 +53,6 @@ public class AIController {
         return ResponseEntity.ok(result);
     }
 
-    /**
-     * ✅ AI 서버 연동 헬스체크
-     * 프론트/백 분리 배포 시 CORS/연결 확인용
-     */
     @GetMapping("/health")
     public ResponseEntity<String> health() {
         return ResponseEntity.ok("ok");

@@ -28,7 +28,10 @@ public class SecurityConfig {
                                 "/v3/api-docs/**",
                                 "/swagger-ui/**",
                                 "/swagger-ui.html",
-                                "/api/interview/voice/**"
+                                "/api/introductions/**",
+                                "/api/interview/voice/**",
+                                "/api/interview/audio",
+                                "/api/interview/question-gen/**"
                         ).permitAll()
                         // 🔓 스모크 테스트용으로 User API만 임시 오픈
                         .requestMatchers("/api/users/**").permitAll()

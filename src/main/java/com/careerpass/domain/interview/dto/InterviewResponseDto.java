@@ -1,29 +1,31 @@
 package com.careerpass.domain.interview.dto;
 
 import com.careerpass.domain.interview.entity.Interview;
-import com.careerpass.domain.interview.entity.Status;
-import lombok.*;
+import lombok.Builder;
+import lombok.Data;
 
 import java.time.LocalDateTime;
 
-@Getter @Builder
-@AllArgsConstructor @NoArgsConstructor
+@Data
+@Builder
 public class InterviewResponseDto {
     private Long id;
-    private Long userId;
+    private String fileUrl;    // S3 key 또는 presigned URL (정책에 따라)
+    private String status;
     private String jobApplied;
-    private String fileUrl;
-    private Status status;
+    private Long userId;
     private LocalDateTime requestTime;
+    private LocalDateTime finishTime;
 
     public static InterviewResponseDto from(Interview i) {
         return InterviewResponseDto.builder()
                 .id(i.getId())
-                .userId(i.getUserId())
-                .jobApplied(i.getJobApplied())
                 .fileUrl(i.getFileUrl())
-                .status(i.getStatus())
+                .status(i.getStatus().name())
+                .jobApplied(i.getJobApplied())
+                .userId(i.getUserId())
                 .requestTime(i.getRequestTime())
+                .finishTime(i.getFinishTime())
                 .build();
     }
 }
