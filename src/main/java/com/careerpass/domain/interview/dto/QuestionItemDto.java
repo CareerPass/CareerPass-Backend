@@ -1,6 +1,8 @@
 package com.careerpass.domain.interview.dto;
 
+import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.AllArgsConstructor;
+import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
@@ -13,8 +15,10 @@ import lombok.NoArgsConstructor;
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
+@Builder
+@Schema(description = "질문 항목")
 public class QuestionItemDto {
-    private String questionId;
-    private String text;
-    private String category;
+    @Schema(example = "q-intro") private String questionId;
+    @Schema(example = "자기소개를 해주세요.") private String text;
+    @Schema(example = "intro") private String category; // intro / technical / behavior
 }

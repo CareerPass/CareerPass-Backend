@@ -3,6 +3,7 @@ package com.careerpass.domain.interview.controller;
 import com.careerpass.domain.interview.dto.AnswerUploadMetaDto;
 import com.careerpass.domain.interview.dto.AnalysisResultDto;
 import com.careerpass.domain.interview.service.AIService;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -25,6 +26,7 @@ import org.springframework.web.multipart.MultipartFile;
 public class AIController {
 
     private final AIService aiService;
+    private final ObjectMapper objectMapper; // ✅ Swagger text/plain meta 방어용
 
     @PostMapping(
             value = "/analyze",
@@ -32,12 +34,21 @@ public class AIController {
             produces = MediaType.APPLICATION_JSON_VALUE
     )
     public ResponseEntity<AnalysisResultDto> analyze(
-            @Valid @RequestPart("meta") AnswerUploadMetaDto meta,
+            @RequestPart("meta") String metaJson,   // ✅ String으로 받기
             @RequestPart("file") MultipartFile file
     ) {
         // 컨트롤러 레벨 최소 방어 (서비스에서도 재검증)
         if (file == null || file.isEmpty()) {
-            log.warn("빈 파일 업로드 요청. meta={}", meta);
+            log.warn("빈 파일 업로드 요청. meta={}", metaJson);
+            return ResponseEntity.badRequest().build();
+        }
+
+        // ✅ meta JSON 파싱
+        AnswerUploadMetaDto meta;
+        try {
+            meta = objectMapper.readValue(metaJson, AnswerUploadMetaDto.class);
+        } catch (Exception e) {
+            log.warn("meta 파싱 실패: {}", metaJson, e);
             return ResponseEntity.badRequest().build();
         }
 
