@@ -1,22 +1,23 @@
 package com.careerpass.domain.interview.dto;
 
+import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotBlank;
-import lombok.Builder;
 
 /**
- * 🎯 면접 질문 생성 요청 DTO
- * - 사용자가 선택한 전공(major)과 지원 직무(jobTitle)를 기반으로
- *   AI가 맞춤형 질문 리스트를 생성하도록 요청한다.
+ * 면접 질문 생성 요청 DTO
+ * FastAPI(Flask) 서버로 major, jobTitle, count를 전달한다.
  */
-@Builder
+@Schema(description = "면접 질문 생성 요청 DTO")
 public record GenerateQuestionsRequest(
 
-        /** 전공 (예: 컴퓨터공학과, 경영학과 등) */
-        @NotBlank String major,
+        @NotBlank
+        @Schema(description = "지원 전공 또는 학과명", example = "컴퓨터공학과")
+        String major,
 
-        /** 지원 직무 (예: 백엔드 개발자, 데이터 분석가 등) */
-        @NotBlank String jobTitle,
+        @NotBlank
+        @Schema(description = "지원 직무명", example = "백엔드 개발자")
+        String jobTitle,
 
-        /** 생성할 질문 개수 (기본값 5, null 가능) */
+        @Schema(description = "질문 개수 (null이면 기본 5)", example = "5", nullable = true)
         Integer count
 ) {}
