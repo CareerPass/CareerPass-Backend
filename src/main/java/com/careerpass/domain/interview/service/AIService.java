@@ -78,7 +78,7 @@ public class AIService {
 
         try {
             // 5) FastAPI(/analyze) 호출
-            Mono<AnalysisResultDto> mono = aiWebClient.post()
+            Mono<SttResponse> mono = aiWebClient.post()
                     .uri("/analyze")
                     .contentType(MediaType.MULTIPART_FORM_DATA)
                     .body(BodyInserters.fromMultipartData(multipart))
@@ -89,18 +89,23 @@ public class AIService {
                     .onStatus(s -> s.is5xxServerError(), cr ->
                             cr.bodyToMono(String.class).defaultIfEmpty("")
                                     .map(body -> new IllegalStateException("STT 서버 5xx 응답: " + body)))
-                    .bodyToMono(AnalysisResultDto.class)
+                    .bodyToMono(SttResponse.class)
                     .timeout(Duration.ofSeconds(30));
 
             // 동기(block) 변환
-            AnalysisResultDto dto = mono.block();
+            SttResponse stt = mono.block();
 
             // 6) 응답 검증: answerText만 있으면 된다
-            if (dto == null || dto.getAnswerText() == null || dto.getAnswerText().isBlank()) {
+            if (stt == null || stt.answerText() == null || stt.answerText().isBlank()) {
                 throw new IllegalStateException("STT 응답이 비어 있습니다.");
             }
 
-            return dto;
+            // 7) meta + STT 텍스트를 합쳐서 우리 DTO로 래핑
+            return AnalysisResultDto.builder()
+                    .interviewId(meta.getInterviewId())
+                    .questionId(meta.getQuestionId())
+                    .answerText(stt.answerText())
+                    .build();
 
         } catch (WebClientResponseException ex) {
             log.error("STT analyze 실패: status={}, body={}", ex.getRawStatusCode(), ex.getResponseBodyAsString());
@@ -138,4 +143,10 @@ public class AIService {
         if (dot < 0 || dot == filename.length() - 1) return null;
         return filename.substring(dot + 1).toLowerCase(Locale.ROOT);
     }
+
+    /**
+     * 🔹 FastAPI STT 서버에서 오는 JSON 형식
+     * { "answerText": "..." }
+     */
+    private record SttResponse(String answerText) {}
 }

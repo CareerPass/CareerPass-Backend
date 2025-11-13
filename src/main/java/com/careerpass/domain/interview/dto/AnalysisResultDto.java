@@ -15,7 +15,15 @@ import lombok.*;
 @Builder
 @Schema(description = "음성 → 텍스트 변환 결과")
 public class AnalysisResultDto {
+    @Schema(description = "인터뷰 ID", example = "1")
+    private Long interviewId;
 
-    @Schema(description = "변환된 답변 텍스트", example = "저는 백엔드 개발자로서 ...")
+    @Schema(description = "질문 ID", example = "q-1")
+    private String questionId;
+
+    @Schema(description = "사용자 ID", example = "10")
+    private Long userId;
+
+    @Schema(description = "Whisper로부터 받은 전사 텍스트")
     private String answerText;
 }
