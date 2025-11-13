@@ -1,23 +1,23 @@
 package com.careerpass.domain.interview.dto;
 
 import io.swagger.v3.oas.annotations.media.Schema;
-import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
 
 /**
  * 면접 질문 생성 요청 DTO
- * FastAPI(Flask) 서버로 major, jobTitle, count를 전달한다.
+ * - 프론트에서는 userId + (선택) 자소서만 넘기고
+ * - 백엔드에서 userId로 학습 프로필을 조회해 major/jobTitle을 채운다.
  */
 @Schema(description = "면접 질문 생성 요청 DTO")
 public record GenerateQuestionsRequest(
 
-        @NotBlank
-        @Schema(description = "지원 전공 또는 학과명", example = "컴퓨터공학과")
-        String major,
+        @NotNull
+        @Schema(description = "유저 ID", example = "10")
+        Long userId,
 
-        @NotBlank
-        @Schema(description = "지원 직무명", example = "백엔드 개발자")
-        String jobTitle,
-
-        @Schema(description = "질문 개수 (null이면 기본 5)", example = "5", nullable = true)
-        Integer count
+        @Schema(
+                description = "지원자의 자기소개서 본문(선택). 비어 있으면 학습 프로필 정보만으로 질문 생성",
+                example = "저는 백엔드 개발자로 성장하기 위해..."
+        )
+        String coverLetter
 ) {}
