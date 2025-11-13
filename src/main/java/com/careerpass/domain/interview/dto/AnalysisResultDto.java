@@ -1,30 +1,21 @@
 package com.careerpass.domain.interview.dto;
 
+import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.*;
 
 /**
- * 🤖 AI 음성 분석 결과 DTO
- * - Whisper/OpenAI 등 외부 AI 분석 서버의 응답을 받아
- *   프론트로 전달하기 위한 데이터 구조
+ * 🎧 STT 결과 DTO
+ * - 음성을 텍스트로 변환한 결과만 담는다.
+ * - 점수/피드백은 "다른 파이썬(팀원)"에서 처리 예정.
  */
-@Data
+@Getter
+@Setter
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
+@Schema(description = "음성 → 텍스트 변환 결과")
 public class AnalysisResultDto {
 
-    /** 분석된 질문 ID */
-    private String questionId;
-
-    /** 전사된 답변 텍스트 */
+    @Schema(description = "변환된 답변 텍스트", example = "저는 백엔드 개발자로서 ...")
     private String answerText;
-
-    /** 답변의 종합 점수 (0~100 등) */
-    private Double score;
-
-    /** AI가 제공한 피드백 문장 */
-    private String feedback;
-
-    /** 답변 길이 (초 단위) */
-    private Double durationSec;
 }

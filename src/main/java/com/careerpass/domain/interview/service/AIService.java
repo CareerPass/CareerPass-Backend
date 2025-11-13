@@ -7,7 +7,6 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.MediaType;
-import org.springframework.http.ResponseEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.stereotype.Service;
 import org.springframework.util.LinkedMultiValueMap;
@@ -22,20 +21,31 @@ import java.time.Duration;
 import java.util.Locale;
 import java.util.Set;
 
+/**
+ * 🎧 STT(AI 음성 → 텍스트) 호출 서비스
+ * - meta + file을 FastAPI(voice_ai.py)의 /analyze 에 전달
+ * - 변환된 텍스트(answerText)만 돌려받는다.
+ * - 점수/피드백 분석은 다른 Python 서버에서 처리 예정.
+ */
 @Service
 @RequiredArgsConstructor
 @Slf4j
 public class AIService {
 
+    // 허용 확장자
     private static final Set<String> ALLOWED_EXT = Set.of("m4a", "mp3", "wav", "webm", "ogg");
-    private static final long MAX_BYTES = 25L * 1024 * 1024; // 25MB (서버/역량 맞춰 조절)
+    // 최대 파일 크기 (25MB)
+    private static final long MAX_BYTES = 25L * 1024 * 1024;
 
-    private final WebClient aiWebClient;     // baseUrl은 config에서 주입
-    private final ObjectMapper objectMapper; // meta(JSON) 직렬화
+    // WebClientConfig 에서 baseUrl("http://localhost:5001")로 설정해둔 Bean
+    private final WebClient aiWebClient;
+
+    // meta(JSON) 직렬화용
+    private final ObjectMapper objectMapper;
 
     /**
-     * meta + file을 multipart/form-data로 FastAPI(/analyze)에 전달하고
-     * 응답을 AnalysisResultDto로 동기 반환.
+     * 🎯 meta + file을 multipart/form-data로 FastAPI(/analyze)에 전달하고,
+     *     STT 결과(텍스트만)를 동기 방식으로 반환한다.
      */
     public AnalysisResultDto analyzeVoice(AnswerUploadMetaDto meta, MultipartFile file) {
         // 1) 기본 검증
@@ -53,7 +63,7 @@ public class AIService {
             throw new IllegalArgumentException("지원하지 않는 파일 형식입니다. 허용: " + ALLOWED_EXT);
         }
 
-        // 3) meta 직렬화
+        // 3) meta 직렬화 (JSON 문자열)
         final String metaJson;
         try {
             metaJson = objectMapper.writeValueAsString(meta);
@@ -67,7 +77,7 @@ public class AIService {
         multipart.add("file", filePart(file));
 
         try {
-            // 5) 호출 (타임아웃 + 에러 응답 맵핑)
+            // 5) FastAPI(/analyze) 호출
             Mono<AnalysisResultDto> mono = aiWebClient.post()
                     .uri("/analyze")
                     .contentType(MediaType.MULTIPART_FORM_DATA)
@@ -75,38 +85,43 @@ public class AIService {
                     .retrieve()
                     .onStatus(s -> s.is4xxClientError(), cr ->
                             cr.bodyToMono(String.class).defaultIfEmpty("")
-                                    .map(body -> new IllegalArgumentException("AI 서버 4xx 응답: " + body)))
+                                    .map(body -> new IllegalArgumentException("STT 서버 4xx 응답: " + body)))
                     .onStatus(s -> s.is5xxServerError(), cr ->
                             cr.bodyToMono(String.class).defaultIfEmpty("")
-                                    .map(body -> new IllegalStateException("AI 서버 5xx 응답: " + body)))
+                                    .map(body -> new IllegalStateException("STT 서버 5xx 응답: " + body)))
                     .bodyToMono(AnalysisResultDto.class)
                     .timeout(Duration.ofSeconds(30));
 
-            AnalysisResultDto dto = mono.block(); // 동기 변환
+            // 동기(block) 변환
+            AnalysisResultDto dto = mono.block();
 
-            if (dto == null || dto.getQuestionId() == null || dto.getAnswerText() == null || dto.getScore() == null) {
-                throw new IllegalStateException("AI 응답이 불완전합니다.");
+            // 6) 응답 검증: answerText만 있으면 된다
+            if (dto == null || dto.getAnswerText() == null || dto.getAnswerText().isBlank()) {
+                throw new IllegalStateException("STT 응답이 비어 있습니다.");
             }
+
             return dto;
 
         } catch (WebClientResponseException ex) {
-            log.error("AI analyze 실패: status={}, body={}", ex.getRawStatusCode(), ex.getResponseBodyAsString());
-            throw new IllegalStateException("AI 서버 응답 오류: " + ex.getRawStatusCode(), ex);
+            log.error("STT analyze 실패: status={}, body={}", ex.getRawStatusCode(), ex.getResponseBodyAsString());
+            throw new IllegalStateException("STT 서버 응답 오류: " + ex.getRawStatusCode(), ex);
 
         } catch (Exception ex) {
-            log.error("AI 서버 호출 실패: {}", ex.getMessage(), ex);
-            throw new IllegalStateException("AI 서버 호출 실패: " + ex.getMessage(), ex);
+            log.error("STT 서버 호출 실패: {}", ex.getMessage(), ex);
+            throw new IllegalStateException("STT 서버 호출 실패: " + ex.getMessage(), ex);
         }
     }
 
     // ---------- 내부 유틸 ----------
 
+    /** meta JSON 파트 */
     private org.springframework.http.HttpEntity<String> jsonPart(String json) {
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
         return new org.springframework.http.HttpEntity<>(json, headers);
     }
 
+    /** 파일 파트 */
     private org.springframework.http.HttpEntity<org.springframework.core.io.Resource> filePart(MultipartFile file) {
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(file.getContentType() != null
@@ -116,6 +131,7 @@ public class AIService {
         return new org.springframework.http.HttpEntity<>(file.getResource(), headers);
     }
 
+    /** 파일 확장자 추출 (소문자) */
     private String extractExt(String filename) {
         if (filename == null) return null;
         int dot = filename.lastIndexOf('.');
