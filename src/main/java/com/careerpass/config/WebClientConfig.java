@@ -21,13 +21,13 @@ public class WebClientConfig {
 
     /**
      * ✅ Flask (면접 질문 생성 서버)와 통신할 WebClient Bean
-     * - 기본 주소: http://localhost:5000
+     * - 기본 주소: http://localhost:5002
      * - InterviewQuestionService 또는 별도 AI 모듈에서 주입받아 사용
      */
     @Bean
     public WebClient questionGenWebClient(WebClient.Builder builder) {
         return builder
-                .baseUrl("http://localhost:5000")  // 필요 시 application.yml로 분리 가능
+                .baseUrl("http://localhost:5002")  // 필요 시 application.yml로 분리 가능
                 .build();
     }
 }
