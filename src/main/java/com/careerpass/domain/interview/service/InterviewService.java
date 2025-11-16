@@ -1,7 +1,5 @@
 package com.careerpass.domain.interview.service;
 
-import com.careerpass.domain.interview.dto.AnswerUploadMetaDto;
-import com.careerpass.domain.interview.dto.AnswerUploadResponse;
 import com.careerpass.domain.interview.entity.Interview;
 import com.careerpass.domain.interview.entity.Status;
 import com.careerpass.domain.interview.repository.InterviewJpaRepository;
@@ -12,10 +10,14 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
-import java.io.IOException;
 import java.time.LocalDateTime;
 import java.util.Objects;
 
+/**
+ * 🎤 인터뷰 저장 서비스
+ * - 파일 검증 → S3 업로드 → tb_interview 저장
+ * - S3/IO 계열 예외는 런타임으로 변환하여 전역 예외 핸들러가 처리하도록 함
+ */
 @Service
 @RequiredArgsConstructor
 @Slf4j
@@ -23,79 +25,46 @@ public class InterviewService {
 
     private final InterviewJpaRepository interviewJpaRepository;
     private final S3Service s3Service;
-    // private final AIService aiService; // ✅ 향후 자동 분석 연동용 (지금은 주석 처리)
 
-    // =========================
-    // 방법 1) 기존 컨트롤러 호환용
-    // =========================
     /**
-     * 컨트롤러에서 호출 중인 기존 시그니처 유지:
-     * createInterview(userId, jobApplied, file)
-     *
-     * - S3 업로드
-     * - Interview 엔티티 생성/저장
-     * - 상태는 현재 enum에 존재하는 값 사용: Status.BEFANALYSE
+     * 컨트롤러에서 호출하는 저장 로직
+     * @param userId     사용자 ID (>=1)
+     * @param jobApplied 지원 직무
+     * @param audioFile  업로드된 음성 파일
+     * @return 저장된 Interview 엔티티
      */
     @Transactional
-    public Interview createInterview(Long userId, String jobApplied, MultipartFile audioFile) throws IOException {
+    public Interview createInterview(Long userId, String jobApplied, MultipartFile audioFile) {
+        // 1) 입력 검증
         validateAudio(audioFile);
+        if (userId == null || userId <= 0) {
+            throw new IllegalArgumentException("유효하지 않은 userId 입니다.");
+        }
+        if (jobApplied == null || jobApplied.isBlank()) {
+            throw new IllegalArgumentException("지원 직무(jobApplied)는 비어 있을 수 없습니다.");
+        }
 
-        // S3 업로드 (반환값: URL 또는 Key — 현재는 fileUrl 필드에 그대로 저장)
-        final String fileLocation = s3Service.storeFile(audioFile);
+        // 2) S3 업로드 (checked 예외는 여기서 런타임으로 변환)
+        final String fileLocation;
+        try {
+            // s3Service.storeFile(...)이 IOException 등을 던져도 여기서 잡아서 변환
+            fileLocation = s3Service.storeFile(audioFile); // 반환: S3 key 또는 URL (정책에 맞게 사용)
+        } catch (Exception e) {
+            log.error("S3 업로드 실패: {}", e.getMessage(), e);
+            throw new IllegalStateException("S3 업로드 중 오류가 발생했습니다.", e);
+        }
 
+        // 3) 엔티티 생성/저장
         Interview interview = Interview.builder()
                 .userId(userId)
                 .jobApplied(jobApplied)
-                .fileUrl(fileLocation)
-                .status(Status.BEFANALYSE)          // 프로젝트에 실제 존재하는 enum 값 사용
+                .fileUrl(fileLocation)      // 권장: 'S3 key' 만 저장
+                .status(Status.BEFANALYSE)  // 프로젝트에 존재하는 enum 값 사용
                 .requestTime(LocalDateTime.now())
+                .finishTime(null)
                 .build();
 
-
-        Interview saved = interviewJpaRepository.save(interview);
-
-        // ✅ (선택) 자동 AI 분석 연동
-        /*
-        try {
-            AnalysisResultDto analysis = aiService.analyzeVoice(
-                new AnswerUploadMetaDto(saved.getId(), null), audioFile);
-            saved.setStatus(Status.FINISH);
-            interviewJpaRepository.save(saved);
-        } catch (Exception e) {
-            log.warn("AI 분석 실패 (저장만 완료): {}", e.getMessage());
-        }
-        */
-
-        return saved;
-    }
-
-    // ===========================================
-    // 보너스) DTO(meta+file) 신시그니처(향후 전환용)
-    // ===========================================
-    /**
-     * meta: { interviewId, questionId } 기반 업로드
-     * 컨트롤러를 meta+file로 바꿀 때 사용할 버전.
-     */
-    @Transactional
-    public AnswerUploadResponse uploadAnswer(AnswerUploadMetaDto meta, MultipartFile audioFile) throws IOException {
-        validateAudio(audioFile);
-
-        // 인터뷰 존재 확인
-        Interview interview = interviewJpaRepository.findById(meta.getInterviewId())
-                .orElseThrow(() -> new IllegalArgumentException("interview not found: " + meta.getInterviewId()));
-
-        final String fileLocation = s3Service.storeFile(audioFile);
-
-        // 파일/상태 갱신
-        interview.setFileUrl(fileLocation);
-        interview.setStatus(Status.BEFANALYSE);
-        interview.setRequestTime(LocalDateTime.now());
-        interviewJpaRepository.save(interview);
-
-        return AnswerUploadResponse.builder()
-                .audioUrl(fileLocation)
-                .questionId(meta.getQuestionId())
-                .build();
+        return interviewJpaRepository.save(interview);
     }
 
     // ==============
@@ -103,17 +72,14 @@ public class InterviewService {
     // ==============
     private void validateAudio(MultipartFile audioFile) {
         if (audioFile == null || audioFile.isEmpty()) {
-            throw new IllegalArgumentException("❌ 업로드된 음성 파일이 비어 있습니다.");
+            throw new IllegalArgumentException("업로드된 음성 파일이 비어 있습니다.");
         }
-
         if (Objects.isNull(audioFile.getOriginalFilename())) {
-            log.warn("⚠️ audio file has no original filename");
+            log.warn("audio file has no original filename");
         }
-
-        // ⚠️ 필요 시 파일 형식 제한 추가
         String filename = audioFile.getOriginalFilename();
-        if (filename != null && !filename.matches(".*\\.(wav|mp3|m4a)$")) {
-            throw new IllegalArgumentException("❌ 지원하지 않는 오디오 형식입니다. (허용: wav, mp3, m4a)");
+        if (filename != null && !filename.matches(".*\\.(wav|mp3|m4a|webm|ogg)$")) {
+            throw new IllegalArgumentException("지원하지 않는 오디오 형식입니다. (허용: wav, mp3, m4a, webm, ogg)");
         }
     }
 }
