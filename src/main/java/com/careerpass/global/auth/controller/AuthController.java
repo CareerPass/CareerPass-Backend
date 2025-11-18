@@ -1,4 +1,4 @@
-package com.careerpass.controller;
+package com.careerpass.global.auth.controller;
 
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RestController;
