@@ -53,7 +53,11 @@ class AIControllerTest {
         when(aiService.analyzeVoice(
                 ArgumentMatchers.any(), ArgumentMatchers.any())
         ).thenReturn(AnalysisResultDto.builder()
-                .questionId(7L).question("Q").answerText("A").score(8.0).build());
+                .questionId("q-1")       // 문자열
+                .answerText("A")
+                .interviewId(1L)
+                .userId(10L)
+                .build());
 
         mvc.perform(
                 multipart("/api/interview/voice/analyze")
