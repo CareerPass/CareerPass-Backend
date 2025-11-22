@@ -21,19 +21,20 @@ public class RoadmapController {
 
     /**
      * 교과목 로드맵 (MAJOR)
-     * 예: /api/roadmap/major?major=컴퓨터공학과&job=백엔드개발자
+     * 예: /api/roadmap/major?major=컴퓨터공학과
+     * -> 응답에 grade=1~4가 다 섞여 있고,
+     *    프론트가 grade 기준으로 나눠서 렌더링
      */
     @GetMapping("/major")
     public List<Roadmap> getMajorRoadmap(
-            @RequestParam String major,
-            @RequestParam String job
+            @RequestParam String major
     ) {
-        return roadmapService.getMajorRoadmap(major, job);
+        return roadmapService.getMajorRoadmap(major);
     }
 
     /**
      * 자격증 로드맵 (CERTIFICATION)
-     * 예: /api/roadmap/cert?major=컴퓨터공학과&job=백엔드개발자
+     * 예: /api/roadmap/cert?major=컴퓨터공학과&job=데이터베이스 개발자
      */
     @GetMapping("/cert")
     public List<Roadmap> getCertificationRoadmap(

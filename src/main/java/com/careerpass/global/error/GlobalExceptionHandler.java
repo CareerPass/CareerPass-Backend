@@ -109,4 +109,15 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(ErrorCode.INTERNAL_SERVER_ERROR.getStatus())
                 .body(ErrorResponse.of(ErrorCode.INTERNAL_SERVER_ERROR));
     }
+
+    // 도메인: roadmap
+    // 도메인: roadmap — 404 처리
+    @ExceptionHandler(com.careerpass.domain.roadmap.exception.RoadmapNotFoundException.class)
+    public ResponseEntity<ErrorResponse> handleRoadmapNotFound(
+            com.careerpass.domain.roadmap.exception.RoadmapNotFoundException e
+    ) {
+        return ResponseEntity
+                .status(ErrorCode.ROADMAP_NOT_FOUND.getStatus())
+                .body(ErrorResponse.of(ErrorCode.ROADMAP_NOT_FOUND, e.getMessage()));
+    }
 }
