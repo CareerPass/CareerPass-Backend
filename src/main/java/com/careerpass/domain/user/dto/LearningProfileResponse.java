@@ -3,6 +3,8 @@ package com.careerpass.domain.user.dto;
 import lombok.Builder;
 import lombok.Getter;
 
+import java.util.List;
+
 // 학습 프로필 응답 DTO
 @Getter
 @Builder
@@ -17,11 +19,11 @@ public class LearningProfileResponse {
     // 학습프로필 완료 여부 (major + targetJob 둘 다 있으면 true)
     private boolean profileCompleted;
 
-    // 2. 최근 면접 기록 요약 (없으면 null)
-    private RecentInterviewSummary recentInterview;
+    // 2. 최근 면접 기록 요약들 (없으면 빈 리스트 or null)
+    private List<RecentInterviewSummary> recentInterviews;
 
-    // 3. 최근 자기소개서 기록 요약 (없으면 null)
-    private RecentIntroductionSummary recentIntroduction;
+    // 3. 최근 자기소개서 기록 요약들 (없으면 빈 리스트 or null)
+    private List<RecentIntroductionSummary> recentIntroductions;
 
     @Getter
     @Builder
