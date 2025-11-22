@@ -3,6 +3,7 @@ package com.careerpass.domain.user.dto;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 
+// 회원 생성 요청 DTO
 public record CreateUserRequest(
         @NotBlank(message = "닉네임은 필수입니다.")
         String nickname,

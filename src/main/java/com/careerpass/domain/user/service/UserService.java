@@ -2,24 +2,24 @@ package com.careerpass.domain.user.service;
 
 import com.careerpass.domain.user.dto.CreateUserRequest;
 import com.careerpass.domain.user.dto.UpdateProfileRequest;
-import com.careerpass.domain.user.dto.ProfileResponse;
+import com.careerpass.domain.user.dto.LearningProfileResponse;
 import com.careerpass.domain.user.entity.User;
 import com.careerpass.domain.user.repository.UserRepository;
+import com.careerpass.domain.user.exception.UserNotFoundException;
+import com.careerpass.domain.user.exception.DuplicateEmailException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import com.careerpass.domain.user.exception.UserNotFoundException;
-import com.careerpass.domain.user.exception.DuplicateEmailException;
 
 import java.util.List;
 import java.util.UUID;
 
 /**
  * UserService
- * - DTO(CreateUserRequest, UpdateProfileRequest, ProfileResponse)를 사용하도록 리팩토링됨
+ * - DTO(CreateUserRequest, UpdateProfileRequest, LearningProfileResponse)를 사용하도록 리팩토링
  * - 이메일은 중복 불가 & 수정 불가
- * - name, email, major, targetJob 4개 필드만 사용
+ * - nickname, email, major, targetJob 4개 필드만 사용
  */
 @Service
 @RequiredArgsConstructor
@@ -30,10 +30,10 @@ public class UserService {
 
     /**
      * [1️⃣ 사용자 생성]
-     * - 이메일이 이미 존재하면 DuplicateKeyException(409)
+     * - 이메일이 이미 존재하면 DuplicateEmailException(409)
      * - 이메일은 최초 생성 시에만 세팅 (이후 수정 불가)
      */
-    public ProfileResponse create(CreateUserRequest req) {
+    public LearningProfileResponse create(CreateUserRequest req) {
         if (userRepository.existsByEmail(req.email())) {
             throw new DuplicateEmailException(req.email());
         }
@@ -49,36 +49,37 @@ public class UserService {
         user.setSocialNumber("LOCAL-" + UUID.randomUUID().toString()); // 임시 식별자
 
         userRepository.save(user);
-        return toDto(user);
+        return toLearningProfileResponse(user);
     }
 
     /**
      * [2️⃣ 단일 조회]
      * - id 기준으로 사용자 조회
-     * - 존재하지 않으면 IllegalArgumentException 발생
+     * - 존재하지 않으면 UserNotFoundException 발생
      */
-    public ProfileResponse getById(Long id) {
+    public LearningProfileResponse getById(Long id) {
         return userRepository.findById(id)
-                .map(this::toDto)
+                .map(this::toLearningProfileResponse)
                 .orElseThrow(() -> new UserNotFoundException(id));
     }
 
     /**
      * [3️⃣ 전체 조회]
      * - 모든 사용자 리스트 조회
+     * - (관리/테스트 용도, 실제 UI에서 안 쓰면 나중에 지워도 됨)
      */
-    public List<ProfileResponse> getAll() {
+    public List<LearningProfileResponse> getAll() {
         return userRepository.findAll().stream()
-                .map(this::toDto)
+                .map(this::toLearningProfileResponse)
                 .toList();
     }
 
     /**
      * [4️⃣ 프로필 수정]
-     * - 이메일 제외 (이름, 전공, 목표 직무만 수정 가능)
+     * - 이메일 제외 (닉네임, 전공, 목표 직무만 수정 가능)
      * - 존재하지 않으면 IllegalArgumentException 발생
      */
-    public ProfileResponse updateProfile(Long id, UpdateProfileRequest req) {
+    public LearningProfileResponse updateProfile(Long id, UpdateProfileRequest req) {
         User user = userRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("User not found"));
 
@@ -87,20 +88,39 @@ public class UserService {
         if (req.major() != null) user.setMajor(req.major());
         if (req.targetJob() != null) user.setTargetJob(req.targetJob());
 
-        return toDto(user);
+        return toLearningProfileResponse(user);
     }
 
     /**
-     * [💡 엔티티 → DTO 변환 메서드]
-     * - 응답 형식을 통일하기 위해 사용
+     * [5️⃣ 학습프로필 조회]
+     * - 기본정보 + 학습프로필 완료 여부
+     * - 최근 면접/자소서 요약은 일단 null (나중에 연결)
      */
-    private ProfileResponse toDto(User user) {
-        return new ProfileResponse(
-                user.getId(),
-                user.getNickname(),
-                user.getEmail(),
-                user.getMajor(),
-                user.getTargetJob()
-        );
+    public LearningProfileResponse getLearningProfile(Long id) {
+        User user = userRepository.findById(id)
+                .orElseThrow(() -> new UserNotFoundException(id));
+
+        return toLearningProfileResponse(user);
+    }
+
+    /**
+     * [💡 엔티티 → LearningProfileResponse 변환 메서드]
+     * - 응답 형식 통일
+     */
+    private LearningProfileResponse toLearningProfileResponse(User user) {
+        boolean profileCompleted =
+                user.getMajor() != null && !user.getMajor().isBlank() &&
+                        user.getTargetJob() != null && !user.getTargetJob().isBlank();
+
+        return LearningProfileResponse.builder()
+                .nickname(user.getNickname())
+                .email(user.getEmail())
+                .major(user.getMajor())
+                .targetJob(user.getTargetJob())
+                .profileCompleted(profileCompleted)
+                // TODO: 실제 최근 면접/자소서 요약 붙일 때 여기 채우기
+                .recentInterview(null)
+                .recentIntroduction(null)
+                .build();
     }
 }

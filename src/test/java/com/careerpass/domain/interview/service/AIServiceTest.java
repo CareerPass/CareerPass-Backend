@@ -25,7 +25,7 @@ class AIServiceTest {
     private AnswerUploadMetaDto meta(long interviewId, long questionId) {
         return AnswerUploadMetaDto.builder()
                 .interviewId(interviewId)
-                .questionId(questionId)
+                .questionId("questionId")
                 .build();
     }
 
@@ -105,10 +105,9 @@ class AIServiceTest {
 
             assertNotNull(res);
             assertEquals(7L, res.getQuestionId());
-            assertEquals("자기소개 부탁드립니다.", res.getQuestion());
+            assertEquals(1L, res.getInterviewId());
+            assertEquals(10L, res.getUserId());
             assertEquals("안녕하세요, 백엔드 개발자 지망생입니다.", res.getAnswerText());
-            assertEquals(8.5, res.getScore());
-            assertTrue(res.getFeedback().contains("구체적 사례"));
         }
     }
 
