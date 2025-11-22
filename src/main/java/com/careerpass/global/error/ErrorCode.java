@@ -15,7 +15,9 @@ public enum ErrorCode {
     FEEDBACK_NOT_FOUND(HttpStatus.NOT_FOUND, "F001", "해당 피드백을 찾을 수 없습니다."),
     // user
     USER_NOT_FOUND(HttpStatus.NOT_FOUND, "U001", "사용자를 찾을 수 없습니다."),
-    DUPLICATE_EMAIL(HttpStatus.CONFLICT, "U002", "이미 존재하는 이메일입니다.");
+    DUPLICATE_EMAIL(HttpStatus.CONFLICT, "U002", "이미 존재하는 이메일입니다."),
+    // roadmap
+    ROADMAP_NOT_FOUND(HttpStatus.NOT_FOUND, "R001", "로드맵 정보를 찾을 수 없습니다.");
 
     private final HttpStatus status;
     private final String code;

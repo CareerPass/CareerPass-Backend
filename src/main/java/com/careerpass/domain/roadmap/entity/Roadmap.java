@@ -28,7 +28,7 @@ public class Roadmap {
     @Column(name = "major_name", length = 20, nullable = true)
     private String majorName;
 
-    @Column(name = "cert_name", length = 20, nullable = true)
+    @Column(name = "cert_name", length = 100, nullable = true)
     private String certName;
 
     @Column(name = "grade", nullable = false)

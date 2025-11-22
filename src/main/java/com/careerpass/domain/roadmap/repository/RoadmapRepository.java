@@ -12,9 +12,17 @@ import java.util.List;
  */
 public interface RoadmapRepository extends JpaRepository<Roadmap, Long> {
 
-    List<Roadmap> findByRoadmapTypeAndMajorAndJob(
-            RoadmapType type,
+    // 교과목용 (전공 기준으로만)
+    List<Roadmap> findByRoadmapTypeAndMajorOrderByGradeAscIdAsc(
+            RoadmapType roadmapType,
+            String major
+    );
+
+    // 자격증용 (전공 + 직무 기준으로)
+    List<Roadmap> findByRoadmapTypeAndMajorAndJobOrderByGradeAscIdAsc(
+            RoadmapType roadmapType,
             String major,
             String job
     );
+
 }
