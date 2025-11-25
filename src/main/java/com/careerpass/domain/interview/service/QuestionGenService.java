@@ -21,7 +21,7 @@ import java.util.stream.IntStream;
 public class QuestionGenService {
 
     // WebClientConfig 에서 만든 Bean (질문 AI 서버: http://localhost:5002)
-    private final WebClient questionGenWebClient;
+    private final WebClient aiWebClient;
 
     /**
      * 🎯 userId + coverLetter 기반으로 질문 생성
@@ -43,8 +43,8 @@ public class QuestionGenService {
         );
 
         // 3) Flask 질문 생성 서버 호출
-        return questionGenWebClient.post()
-                .uri("/api/questions")
+        return aiWebClient.post()
+                .uri("/question/api/questions")
                 .contentType(MediaType.APPLICATION_JSON)
                 .bodyValue(aiReq)
                 .retrieve()
