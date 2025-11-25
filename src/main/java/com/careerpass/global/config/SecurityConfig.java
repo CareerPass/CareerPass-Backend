@@ -31,7 +31,8 @@ public class SecurityConfig {
                                 "/api/introductions/**",
                                 "/api/interview/voice/**",
                                 "/api/interview/audio",
-                                "/api/interview/question-gen/**"
+                                "/api/interview/question-gen/**",
+                                "/api/roadmap/**"
                         ).permitAll()
                         // 🔓 스모크 테스트용으로 User API만 임시 오픈
                         .requestMatchers("/api/users/**").permitAll()
