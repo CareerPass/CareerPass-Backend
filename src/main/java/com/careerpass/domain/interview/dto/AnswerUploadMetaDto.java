@@ -23,4 +23,7 @@ public class AnswerUploadMetaDto {
 
     /** (옵션) 클라이언트 측 녹음 시작 시각 (ms 단위) */
     private Long clientTimestamp;
+
+    /** 답변한 사용자 ID */
+    @NotNull private Long userId;
 }
