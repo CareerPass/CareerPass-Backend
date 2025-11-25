@@ -74,12 +74,16 @@ public class SecurityConfig {
             public void addCorsMappings(CorsRegistry registry) {
                 registry.addMapping("/**")
                         .allowedOrigins(
+                                /*
                                 "http://localhost:8080",
                                 "http://localhost:3000" // ADD: 프론트 로컬
+                                 */
+                                "*"
                         )
                         .allowedMethods("GET","POST","PUT","DELETE","PATCH","OPTIONS")
                         .allowedHeaders("*")
-                        .allowCredentials(true);
+                        .allowCredentials(true)
+                        .maxAge(3600);
             }
         };
     }

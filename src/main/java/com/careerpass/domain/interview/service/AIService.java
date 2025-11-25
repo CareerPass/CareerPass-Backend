@@ -79,7 +79,7 @@ public class AIService {
         try {
             // 5) FastAPI(/analyze) 호출
             Mono<SttResponse> mono = aiWebClient.post()
-                    .uri("/analyze")
+                    .uri("/voice/analyze")
                     .contentType(MediaType.MULTIPART_FORM_DATA)
                     .body(BodyInserters.fromMultipartData(multipart))
                     .retrieve()
