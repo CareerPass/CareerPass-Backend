@@ -104,6 +104,7 @@ public class AIService {
             return AnalysisResultDto.builder()
                     .interviewId(meta.getInterviewId())
                     .questionId(meta.getQuestionId())
+                    .userId(meta.getUserId())
                     .answerText(stt.answerText())
                     .build();
 
