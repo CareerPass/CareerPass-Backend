@@ -31,7 +31,7 @@ public class UserController {
     /**
      * [1️⃣ 사용자 생성]
      */
-    @Operation(summary = "Create a new user (email must be unique)")
+    @Operation(summary = "사용자 생성 api")
     @PostMapping
     public ResponseEntity<LearningProfileResponse> createUser(@RequestBody @Valid CreateUserRequest req) {
         LearningProfileResponse created = userService.create(req);
@@ -43,7 +43,7 @@ public class UserController {
     /**
      * [2️⃣ 전체 사용자 조회]
      */
-    @Operation(summary = "Get all users")
+    @Operation(summary = "전체 사용자 조회 api")
     @GetMapping
     public List<LearningProfileResponse> getAllUsers() {
         return userService.getAll();
@@ -52,7 +52,7 @@ public class UserController {
     /**
      * [3️⃣ 단일 사용자 조회]
      */
-    @Operation(summary = "Get user by ID")
+    @Operation(summary = "단일 사용자 조회 api")
     @GetMapping("/{id}")
     public ResponseEntity<LearningProfileResponse> getUserById(
             @PathVariable @Positive(message = "id는 양수여야 합니다.") Long id) {
@@ -64,7 +64,7 @@ public class UserController {
      * [4️⃣ 프로필 수정]
      * nickname, major, targetJob만 수정
      */
-    @Operation(summary = "Update user profile (nickname, major, target job only)")
+    @Operation(summary = "프로필 수정 api", description = "nickname, major, targetJob만 수정 가능")
     @PatchMapping("/{id}/profile")
     public ResponseEntity<LearningProfileResponse> updateUserProfile(
             @PathVariable Long id,

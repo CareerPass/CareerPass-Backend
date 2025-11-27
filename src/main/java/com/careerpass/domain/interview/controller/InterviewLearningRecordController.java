@@ -3,6 +3,7 @@ package com.careerpass.domain.interview.controller;
 import com.careerpass.domain.interview.dto.SaveInterviewLearningRecordRequest;
 import com.careerpass.domain.interview.entity.InterviewLearningRecord;
 import com.careerpass.domain.interview.service.InterviewLearningRecordService;
+import io.swagger.v3.oas.annotations.Operation;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -35,6 +36,7 @@ public class InterviewLearningRecordController {
      *   "durationMs": 21500
      * }
      */
+    @Operation(summary = "모의 면접 피드백 결과 저장 api")
     @PostMapping
     public ResponseEntity<InterviewLearningRecord> saveRecord(
             @RequestBody SaveInterviewLearningRecordRequest request
