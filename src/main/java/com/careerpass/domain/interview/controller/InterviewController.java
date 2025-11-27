@@ -1,8 +1,11 @@
 package com.careerpass.domain.interview.controller;
 
+import com.careerpass.domain.interview.dto.InterviewFindResponseDto;
 import com.careerpass.domain.interview.dto.InterviewResponseDto;
 import com.careerpass.domain.interview.entity.Interview;
 import com.careerpass.domain.interview.service.InterviewService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Positive;
@@ -66,4 +69,14 @@ public class InterviewController {
                 .header("Location", "/api/interview/" + saved.getId())
                 .body(body);
     }
+
+
+    @GetMapping("/{intervieId}")
+    public ResponseEntity<InterviewFindResponseDto> getDetail(
+            @Parameter(description = "조회할 타임캡슐 ID", required = true)
+            @PathVariable Long interviewId) {
+        InterviewFindResponseDto dto = interviewService.getDetail(interviewId);
+        return ResponseEntity.ok(dto);
+    }
+
 }

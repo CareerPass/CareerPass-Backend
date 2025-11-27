@@ -1,16 +1,23 @@
 package com.careerpass.domain.interview.service;
 
+import com.careerpass.domain.interview.dto.InterviewFindResponseDto;
 import com.careerpass.domain.interview.entity.Interview;
 import com.careerpass.domain.interview.entity.Status;
 import com.careerpass.domain.interview.repository.InterviewJpaRepository;
+import com.careerpass.domain.introduction.dto.IntroductionDtos;
 import com.careerpass.global.aws.service.S3Service;
+import io.swagger.v3.oas.annotations.Parameter;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Objects;
 
 /**
@@ -82,4 +89,12 @@ public class InterviewService {
             throw new IllegalArgumentException("지원하지 않는 오디오 형식입니다. (허용: wav, mp3, m4a, webm, ogg)");
         }
     }
+
+    public InterviewFindResponseDto getDetail(Long id) {
+        Interview interview = interviewJpaRepository.findById(id).orElseThrow(
+                () -> new IllegalArgumentException("아이디 값이 없습니다")
+        );
+        return InterviewFindResponseDto.toDto(interview);
+    }
+
 }
