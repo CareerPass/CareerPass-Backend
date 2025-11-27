@@ -3,6 +3,7 @@ package com.careerpass.domain.introduction.controller;
 import com.careerpass.domain.introduction.dto.IntroductionDtos.CreateRequest;
 import com.careerpass.domain.introduction.dto.IntroductionDtos.Response;
 import com.careerpass.domain.introduction.service.IntroductionService;
+import io.swagger.v3.oas.annotations.Operation;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Positive;
@@ -32,6 +33,7 @@ public class IntroductionController {
      * - req.submissionTime 이 null 일 수 있음 → Service에서 now()로 대체 권장
      * - 생성 성공 시 Location 헤더에 /api/introductions/{id} 반환
      */
+    @Operation(summary = "자기소개서 파일 업로드 api")
     @PostMapping(consumes = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<Response> create(@RequestBody @Valid CreateRequest req) {
         log.debug("POST /api/introductions - userId={}, jobAppliedLen={}, introLen={}",
@@ -56,6 +58,7 @@ public class IntroductionController {
     /**
      * 단건 조회
      */
+    @Operation(summary = "자기소개서 단건 상세 조회")
     @GetMapping("/{id}")
     public ResponseEntity<Response> get(@PathVariable @Positive(message = "id는 양수여야 합니다.") Long id) {
         log.debug("GET /api/introductions/{}", id);
@@ -66,6 +69,7 @@ public class IntroductionController {
      * 사용자별 목록 조회
      * - 추후 페이징 필요하면 page, size 파라미터 추가 권장
      */
+    @Operation(summary = "자기소개서 리스트 조회")
     @GetMapping
     public ResponseEntity<List<Response>> listByUser(
             @RequestParam

@@ -42,6 +42,7 @@ public class InterviewController {
      * 반환: 201 Created + InterviewResponseDto
      * 실패: GlobalExceptionHandler에서 400/500 응답
      */
+    @Operation(summary = "모의 면접 파일 업로드 api")
     @PostMapping(
             value = "/audio",
             consumes = MediaType.MULTIPART_FORM_DATA_VALUE,
@@ -71,9 +72,10 @@ public class InterviewController {
     }
 
 
-    @GetMapping("/{intervieId}")
+    @Operation(summary = "모의 면접 단건 상세 조회")
+    @GetMapping("/{interviewId}")
     public ResponseEntity<InterviewFindResponseDto> getDetail(
-            @Parameter(description = "조회할 타임캡슐 ID", required = true)
+            @Parameter(description = "조회할 모의 면접 ID", required = true)
             @PathVariable Long interviewId) {
         InterviewFindResponseDto dto = interviewService.getDetail(interviewId);
         return ResponseEntity.ok(dto);

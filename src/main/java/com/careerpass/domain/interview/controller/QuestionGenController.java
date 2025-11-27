@@ -3,6 +3,7 @@ package com.careerpass.domain.interview.controller;
 import com.careerpass.domain.interview.dto.GenerateQuestionsRequest;
 import com.careerpass.domain.interview.dto.GenerateQuestionsResponse;
 import com.careerpass.domain.interview.service.QuestionGenService;
+import io.swagger.v3.oas.annotations.Operation;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
@@ -28,6 +29,7 @@ public class QuestionGenController {
      * ▶ POST /api/interview/question-gen
      * Body: { userId, coverLetter }
      */
+    @Operation(summary = "질문 생성 api")
     @PostMapping
     public Mono<ResponseEntity<GenerateQuestionsResponse>> generate(
             @RequestBody GenerateQuestionsRequest req

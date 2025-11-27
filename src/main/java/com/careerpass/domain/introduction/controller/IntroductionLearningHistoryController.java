@@ -5,6 +5,7 @@ import com.careerpass.domain.introduction.entity.Introduction;
 import com.careerpass.domain.introduction.entity.IntroductionLearningHistory;
 import com.careerpass.domain.introduction.repository.IntroductionRepository;
 import com.careerpass.domain.introduction.service.IntroductionLearningHistoryService;
+import io.swagger.v3.oas.annotations.Operation;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -37,6 +38,7 @@ public class IntroductionLearningHistoryController {
      *   "questionCount": 5
      * }
      */
+    @Operation(summary = "자기소개서 피드백 결과 저장 api")
     @PostMapping
     public ResponseEntity<IntroductionLearningHistory> saveHistory(
             @RequestBody SaveIntroductionLearningHistoryRequest request

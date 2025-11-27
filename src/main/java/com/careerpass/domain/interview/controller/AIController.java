@@ -4,6 +4,7 @@ import com.careerpass.domain.interview.dto.AnswerUploadMetaDto;
 import com.careerpass.domain.interview.dto.AnalysisResultDto;
 import com.careerpass.domain.interview.service.AIService;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import io.swagger.v3.oas.annotations.Operation;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.MediaType;
@@ -28,6 +29,7 @@ public class AIController {
     private final AIService aiService;
     private final ObjectMapper objectMapper; // Swagger 에서 meta를 text/plain 으로 줄 때 방어용
 
+    @Operation(summary = "STT 호출 api")
     @PostMapping(
             value = "/analyze",
             consumes = MediaType.MULTIPART_FORM_DATA_VALUE,
@@ -71,6 +73,7 @@ public class AIController {
         return ResponseEntity.ok(result);
     }
 
+    @Operation(summary = "정상 작동 확인 api")
     @GetMapping("/health")
     public ResponseEntity<String> health() {
         return ResponseEntity.ok("ok");
