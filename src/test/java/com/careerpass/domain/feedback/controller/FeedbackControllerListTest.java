@@ -9,9 +9,9 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
 import java.util.List;
@@ -26,14 +26,15 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 class FeedbackControllerListTest {
 
     @Autowired MockMvc mockMvc;
-    @MockBean FeedbackService feedbackService;
+    @MockitoBean
+    FeedbackService feedbackService;
 
     @Test
     @DisplayName("GET /api/feedback/introduction/{id} - 정상 200")
     void listByIntroduction_ok_200() throws Exception {
         var list = List.of(
-                new FeedbackDtos.Response(1L, FeedbackType.INTRODUCTION, 90L, "좋음", "섹션1", 10L, null),
-                new FeedbackDtos.Response(2L, FeedbackType.INTRODUCTION, 85L, "보통", "섹션2", 10L, null)
+                new FeedbackDtos.Response(1L, "제목", FeedbackType.INTRODUCTION, 90L, "좋음", "섹션1", 10L, null),
+                new FeedbackDtos.Response(2L, "제목", FeedbackType.INTRODUCTION, 85L, "보통", "섹션2", 10L, null)
         );
         when(feedbackService.listByIntroduction(10L)).thenReturn(list);
 
@@ -63,7 +64,7 @@ class FeedbackControllerListTest {
     @DisplayName("GET /api/feedback/interview/{id} - 정상 200")
     void listByInterview_ok_200() throws Exception {
         var list = List.of(
-                new FeedbackDtos.Response(3L, FeedbackType.INTERVIEW, 77L, "개선 필요", "파트A", null, 20L)
+                new FeedbackDtos.Response(3L, "제목", FeedbackType.INTERVIEW, 77L, "개선 필요", "파트A", null, 20L)
         );
         when(feedbackService.listByInterview(20L)).thenReturn(list);
 
