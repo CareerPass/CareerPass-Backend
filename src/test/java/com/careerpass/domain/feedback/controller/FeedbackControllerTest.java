@@ -10,9 +10,9 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
 import static org.mockito.ArgumentMatchers.anyLong;
@@ -28,7 +28,7 @@ class FeedbackControllerTest {
     @Autowired
     MockMvc mockMvc;
 
-    @MockBean
+    @MockitoBean
     FeedbackService feedbackService;
 
     @Test
@@ -36,6 +36,7 @@ class FeedbackControllerTest {
     void get_ok_200() throws Exception {
         var response = new FeedbackDtos.Response(
                 1L,
+                "제목",
                 FeedbackType.INTRODUCTION, // enum 값 (예: INTRODUCTION, INTERVIEW 중 하나)
                 90L,
                 "좋은 자기소개입니다.",

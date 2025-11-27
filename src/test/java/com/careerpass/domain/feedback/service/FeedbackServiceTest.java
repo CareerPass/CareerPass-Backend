@@ -31,6 +31,7 @@ class FeedbackServiceTest {
     @DisplayName("create() - 정상 저장 시 Response 반환")
     void create_ok() {
         var req = new FeedbackDtos.CreateRequest(
+                "제목",
                 FeedbackType.INTRODUCTION,
                 88L,
                 "좋아요",
@@ -41,6 +42,7 @@ class FeedbackServiceTest {
 
         var entity = Feedback.builder()
                 .id(10L)
+                .title("제목")
                 .feedbackType(FeedbackType.INTRODUCTION)
                 .totalScore(88L)
                 .feedbackText("좋아요")

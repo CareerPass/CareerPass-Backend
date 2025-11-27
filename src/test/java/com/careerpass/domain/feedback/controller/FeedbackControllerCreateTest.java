@@ -10,9 +10,9 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
 import static org.mockito.ArgumentMatchers.any;
@@ -28,12 +28,14 @@ class FeedbackControllerCreateTest {
     @Autowired MockMvc mockMvc;
     @Autowired ObjectMapper objectMapper;
 
-    @MockBean FeedbackService feedbackService;
+    @MockitoBean
+    FeedbackService feedbackService;
 
     @Test
     @DisplayName("POST /api/feedback - 정상 생성 시 201")
     void create_ok_201() throws Exception {
         var req = new FeedbackDtos.CreateRequest(
+                "제목",
                 FeedbackType.INTRODUCTION, // enum 값
                 95L,
                 "전체적으로 훌륭합니다.",
@@ -44,6 +46,7 @@ class FeedbackControllerCreateTest {
 
         var resp = new FeedbackDtos.Response(
                 1L,
+                "제목",
                 FeedbackType.INTRODUCTION,
                 95L,
                 "전체적으로 훌륭합니다.",
@@ -71,6 +74,7 @@ class FeedbackControllerCreateTest {
     void create_invalidBody_400() throws Exception {
         // feedbackType=null, totalScore=null, feedbackText="", sectionFeedback=""
         var badReq = new FeedbackDtos.CreateRequest(
+                "",
                 null,
                 null,
                 "",

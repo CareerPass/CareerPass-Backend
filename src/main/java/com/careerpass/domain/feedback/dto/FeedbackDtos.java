@@ -8,6 +8,7 @@ public class FeedbackDtos {
 
     // 생성 요청
     public record CreateRequest(
+            @NotNull String title,
             @NotNull FeedbackType feedbackType,
             @NotNull Long totalScore,
             @NotBlank String feedbackText,
@@ -19,6 +20,7 @@ public class FeedbackDtos {
     // 응답
     public record Response(
             Long id,
+            String title,
             FeedbackType feedbackType,
             Long totalScore,
             String feedbackText,

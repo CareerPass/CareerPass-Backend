@@ -4,7 +4,6 @@ import com.careerpass.domain.feedback.dto.FeedbackDtos.CreateRequest;
 import com.careerpass.domain.feedback.dto.FeedbackDtos.Response;
 import com.careerpass.domain.feedback.entity.Feedback;
 import com.careerpass.domain.feedback.repository.FeedbackRepository;
-import com.careerpass.domain.feedback.exception.FeedbackNotFoundException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -21,6 +20,7 @@ public class FeedbackService {
     @Transactional
     public Response create(CreateRequest req) {
         Feedback feedback = Feedback.builder()
+                .title(req.title())
                 .feedbackType(req.feedbackType())
                 .totalScore(req.totalScore())
                 .feedbackText(req.feedbackText())
@@ -58,6 +58,7 @@ public class FeedbackService {
     private Response toDto(Feedback f) {
         return new Response(
                 f.getId(),
+                f.getTitle(),
                 f.getFeedbackType(),
                 f.getTotalScore(),
                 f.getFeedbackText(),
