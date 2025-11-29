@@ -13,7 +13,8 @@ public class SecurityConfig {
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http
-                .cors(cors -> {}) // ADD: CORS 설정 사용하도록 활성화
+                // ✅ CORS 활성화
+                .cors(cors -> {})
 
                 // 🔒 CSRF (API 위주면 disable)
                 .csrf(csrf -> csrf.disable())
@@ -21,39 +22,33 @@ public class SecurityConfig {
                 // ✅ 접근 권한 설정
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(
-                                "/",
-                                "/health",
+                                "/",                // 루트
+                                "/health",          // 단순 헬스
+                                "/api/health",      // API 헬스
                                 "/error",
+
                                 // ✅ Swagger 관련 URL 전부 허용
                                 "/v3/api-docs/**",
                                 "/swagger-ui/**",
                                 "/swagger-ui.html",
-                                "/api/introductions/**",
-                                "/api/interview/voice/**",
-                                "/api/interview/audio",
-                                "/api/interview/question-gen/**",
-                                "/api/roadmap/**"
-                        ).permitAll()
-                        // 🔓 스모크 테스트용으로 User API만 임시 오픈
-                        .requestMatchers("/api/users/**").permitAll()
-                        // 🔓 자기소개서 저장/조회 임시 오픈 (Swagger 테스트용)
-                        .requestMatchers("/api/introductions/**").permitAll()
-                        // 🔓 피드백 저장/조회 임시 오픈 (Swagger 테스트용)
-                        .requestMatchers("/api/feedbacks/**").permitAll()
-                        // 🔓 AI 음성면접 API 오픈
-                        .requestMatchers("/api/interviews/voice/**").permitAll()
 
-                        // 나머지는 인증 필요
+                                // ✅ 로그아웃 성공 페이지
+                                "/logout-success"
+                        ).permitAll()
+
+                        // 🧷 그 외 모든 요청은 로그인 필요
+                        // /me, /api/users/**, /api/roadmap/**, /api/introductions/** 등 전부 포함
                         .anyRequest().authenticated()
                 )
 
-                // 폼로그인/기본인증은 사용 안 함 (우린 OAuth2만)
+                // 폼로그인/기본 인증은 사용 안 함 (우린 OAuth2만)
                 .formLogin(form -> form.disable())
                 .httpBasic(basic -> basic.disable())
 
-                // ✅ OAuth2 로그인 (구글 자동 플로우)
+                // ✅ OAuth2 로그인 (구글)
                 .oauth2Login(oauth -> oauth
-                        .defaultSuccessUrl("/me", true)
+                        // 로그인 성공 시 프론트 콜백으로 리다이렉트
+                        .defaultSuccessUrl("http://localhost:3000/auth/callback", true)
                 )
 
                 // ✅ 로그아웃 설정
@@ -67,7 +62,7 @@ public class SecurityConfig {
         return http.build();
     }
 
-    // 개발용 CORS (Swagger/프론트 → API 호출 허용)
+    // ✅ 개발용 CORS (프론트 → API 호출 허용)
     @Bean
     public WebMvcConfigurer corsConfigurer() {
         return new WebMvcConfigurer() {
@@ -75,13 +70,11 @@ public class SecurityConfig {
             public void addCorsMappings(CorsRegistry registry) {
                 registry.addMapping("/**")
                         .allowedOrigins(
-                                /*
-                                "http://localhost:8080",
-                                "http://localhost:3000" // ADD: 프론트 로컬
-                                 */
-                                "*"
+                                "http://localhost:3000"
+                                // 배포 프론트 생기면 여기 추가
+                                // "http://13.125.192.47:3000"
                         )
-                        .allowedMethods("GET","POST","PUT","DELETE","PATCH","OPTIONS")
+                        .allowedMethods("GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS")
                         .allowedHeaders("*")
                         .allowCredentials(true)
                         .maxAge(3600);
