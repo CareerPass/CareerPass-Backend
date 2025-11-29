@@ -10,6 +10,8 @@ import jakarta.validation.Valid;
 import jakarta.validation.constraints.Positive;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.oauth2.core.user.OAuth2User;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
@@ -20,7 +22,7 @@ import java.util.List;
  * UserController (LearningProfileResponse 기반)
  */
 @Validated
-@Tag(name = "User API", description = "User API for managing learning profile (nickname, email, major, target job)")
+@Tag(name = "User API", description = "User API for managing learning profile (nickname, major, target job)")
 @RestController
 @RequestMapping("/api/users")
 @RequiredArgsConstructor
@@ -30,11 +32,24 @@ public class UserController {
 
     /**
      * [1️⃣ 사용자 생성]
+     * - 이메일은 OAuth2 로그인 정보(OAuth2User)에서 직접 추출
+     * - CreateUserRequest 에는 이메일 없음
      */
     @Operation(summary = "사용자 생성 api")
     @PostMapping
-    public ResponseEntity<LearningProfileResponse> createUser(@RequestBody @Valid CreateUserRequest req) {
-        LearningProfileResponse created = userService.create(req);
+    public ResponseEntity<LearningProfileResponse> createUser(
+            @AuthenticationPrincipal OAuth2User oauth2User,
+            @RequestBody @Valid CreateUserRequest req
+    ) {
+        // 🔹 OAuth2User에서 email attribute 추출 (구글 로그인 기준)
+        String email = oauth2User != null ? oauth2User.getAttribute("email") : null;
+
+        if (email == null || email.isBlank()) {
+            throw new IllegalStateException("소셜 로그인 정보에 이메일이 없습니다. OAuth2 로그인 설정을 확인해주세요.");
+        }
+
+        LearningProfileResponse created = userService.create(email, req);
+
         return ResponseEntity
                 .created(URI.create("/api/users/" + created.getEmail()))
                 .body(created);
@@ -55,8 +70,8 @@ public class UserController {
     @Operation(summary = "단일 사용자 조회 api")
     @GetMapping("/{id}")
     public ResponseEntity<LearningProfileResponse> getUserById(
-            @PathVariable @Positive(message = "id는 양수여야 합니다.") Long id) {
-
+            @PathVariable @Positive(message = "id는 양수여야 합니다.") Long id
+    ) {
         return ResponseEntity.ok(userService.getLearningProfile(id));
     }
 
@@ -68,8 +83,8 @@ public class UserController {
     @PatchMapping("/{id}/profile")
     public ResponseEntity<LearningProfileResponse> updateUserProfile(
             @PathVariable Long id,
-            @RequestBody UpdateProfileRequest req) {
-
+            @RequestBody UpdateProfileRequest req
+    ) {
         return ResponseEntity.ok(userService.updateProfile(id, req));
     }
 }

@@ -35,23 +35,33 @@ public class UserService {
 
     /**
      * [1️⃣ 사용자 생성]
+     * - 이메일은 OAuth 로그인 성공 시 백엔드에서 전달받음 (CreateUserRequest에는 없음)
      * - 이메일이 이미 존재하면 DuplicateEmailException(409)
-     * - 이메일은 최초 생성 시에만 세팅 (이후 수정 불가)
      */
-    public LearningProfileResponse create(CreateUserRequest req) {
-        if (userRepository.existsByEmail(req.email())) {
-            throw new DuplicateEmailException(req.email());
+    public LearningProfileResponse create(String email, CreateUserRequest req) {
+        // 이메일 중복 체크
+        if (userRepository.existsByEmail(email)) {
+            throw new DuplicateEmailException(email);
         }
 
         User user = new User();
-        user.setNickname(req.nickname());
-        user.setEmail(req.email());
-        user.setMajor(req.major());
-        user.setTargetJob(req.targetJob());
+        user.setNickname(req.nickname());       // 입력 받는 항목
+        user.setEmail(email);                   // OAuth 제공 이메일
+        user.setMajor(req.major());             // 입력 받는 항목
+        user.setTargetJob(req.targetJob());     // 입력 받는 항목
 
         // 소셜 정보 기본값 (NOT NULL 피하기용)
         user.setSocialType(SocialType.GOOGLE);
-        user.setSocialNumber("LOCAL-" + UUID.randomUUID());
+        user.setSocialNumber("GOOGLE-" + UUID.randomUUID());
+
+        /**
+         * 📌 최초 생성 시 프로필 완료 여부 반영
+         * major & targetJob 이 세팅되면 true
+         */
+        boolean completed =
+                req.major() != null && !req.major().isBlank() &&
+                        req.targetJob() != null && !req.targetJob().isBlank();
+        user.setProfileCompleted(completed);
 
         userRepository.save(user);
         return toLearningProfileResponse(user);
@@ -83,7 +93,7 @@ public class UserService {
     /**
      * [4️⃣ 프로필 수정]
      * - 이메일 제외 (닉네임, 전공, 목표 직무만 수정 가능)
-     * - 존재하지 않으면 IllegalArgumentException 발생
+     * - profileCompleted 자동 업데이트
      */
     public LearningProfileResponse updateProfile(Long id, UpdateProfileRequest req) {
         User user = userRepository.findById(id)
@@ -98,6 +108,14 @@ public class UserService {
         if (req.targetJob() != null) {
             user.setTargetJob(req.targetJob());
         }
+
+        /*
+         * 📌 update 후 프로필 완료 여부 다시 계산하여 반영
+         */
+        boolean completed =
+                user.getMajor() != null && !user.getMajor().isBlank() &&
+                        user.getTargetJob() != null && !user.getTargetJob().isBlank();
+        user.setProfileCompleted(completed);
 
         return toLearningProfileResponse(user);
     }
@@ -120,6 +138,7 @@ public class UserService {
      * - 인터뷰/자소서 리스트를 한 번에 세팅
      */
     private LearningProfileResponse toLearningProfileResponse(User user) {
+
         boolean profileCompleted =
                 user.getMajor() != null && !user.getMajor().isBlank() &&
                         user.getTargetJob() != null && !user.getTargetJob().isBlank();
@@ -150,7 +169,6 @@ public class UserService {
                 .findByUserIdOrderByLearnedAtDesc(userId)
                 .stream()
                 .map(record -> {
-                    // 필수로 있는 값만 사용 (id, learnedAt)
                     Long interviewId = record.getId();
 
                     String date = null;
@@ -158,11 +176,10 @@ public class UserService {
                         date = record.getLearnedAt().format(DATE_FORMATTER);
                     }
 
-                    // title / score는 엔티티 구조 보고 나중에 채워도 됨
                     return LearningProfileResponse.RecentInterviewSummary.builder()
                             .interviewId(interviewId)
-                            .title(null)   // 필요 시 record에서 제목 필드 꺼내서 세팅
-                            .score(null)   // 필요 시 record에서 점수 필드 꺼내서 세팅
+                            .title(null)
+                            .score(null)
                             .date(date)
                             .build();
                 })
@@ -178,7 +195,6 @@ public class UserService {
                 .findByUserIdOrderByLearnedAtDesc(userId)
                 .stream()
                 .map(history -> {
-                    // introductionId 는 레포지토리 메서드 시그니처 상 확실히 존재
                     Long introductionId = history.getIntroduction().getId();
 
                     String date = null;
@@ -188,7 +204,7 @@ public class UserService {
 
                     return LearningProfileResponse.RecentIntroductionSummary.builder()
                             .introductionId(introductionId)
-                            .title(null)   // 필요 시 history/연관 엔티티에서 제목 꺼내기
+                            .title(null)
                             .date(date)
                             .build();
                 })
