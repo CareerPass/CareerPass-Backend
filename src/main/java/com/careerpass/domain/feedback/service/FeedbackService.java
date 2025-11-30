@@ -7,6 +7,10 @@ import com.careerpass.domain.feedback.repository.FeedbackRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import com.careerpass.domain.feedback.dto.IntroductionAiDtos.IntroFeedbackRequest;
+import com.careerpass.domain.feedback.dto.IntroductionAiDtos.IntroFeedbackResponse;
+import org.springframework.web.reactive.function.client.WebClient;
+import org.springframework.web.reactive.function.client.WebClientResponseException;
 
 import java.util.List;
 
@@ -15,6 +19,11 @@ import java.util.List;
 public class FeedbackService {
 
     private final FeedbackRepository feedbackRepository;
+
+    // 🔹 파이썬 Resume AI 서버 WebClient
+    private final WebClient resumeAiClient = WebClient.builder()
+            .baseUrl("http://localhost:8000") // 지금 uvicorn 띄운 주소
+            .build();
 
     // 피드백 생성
     @Transactional
@@ -54,6 +63,29 @@ public class FeedbackService {
         return feedbackRepository.findByInterviewIdOrderByIdDesc(interviewId)
                 .stream().map(this::toDto).toList();
     }
+
+    /**
+     * 자소서 AI 피드백 생성 (파이썬 FastAPI 호출)
+     */
+    @Transactional(readOnly = true)
+    public IntroFeedbackResponse createIntroAiFeedback(IntroFeedbackRequest req) {
+
+        try {
+            return resumeAiClient.post()
+                    .uri("/resume/feedback")   // 🔴 파이썬 @resume_router.post("/resume/feedback")
+                    .bodyValue(req)           // { "userId": .., "resumeContent": "..." }
+                    .retrieve()
+                    .bodyToMono(IntroFeedbackResponse.class)
+                    .block();
+        } catch (WebClientResponseException ex) {
+            // 파이썬 쪽 4xx/5xx
+            throw new RuntimeException("Python Resume AI 서버 호출 실패: " + ex.getResponseBodyAsString(), ex);
+        } catch (Exception ex) {
+            // 네트워크 등 기타 오류
+            throw new RuntimeException("Python Resume AI 서버 연결 중 오류 발생", ex);
+        }
+    }
+
 
     private Response toDto(Feedback f) {
         return new Response(

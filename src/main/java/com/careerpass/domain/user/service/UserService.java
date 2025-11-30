@@ -45,26 +45,38 @@ public class UserService {
         }
 
         User user = new User();
-        user.setNickname(req.nickname());       // 입력 받는 항목
-        user.setEmail(email);                   // OAuth 제공 이메일
-        user.setMajor(req.major());             // 입력 받는 항목
-        user.setTargetJob(req.targetJob());     // 입력 받는 항목
+
+        // 🔹 닉네임: 이메일 앞부분을 기본값으로 사용
+        String defaultNickname = (email != null && email.contains("@"))
+                ? email.split("@")[0]
+                : "user-" + UUID.randomUUID();
+
+        user.setNickname(defaultNickname);
+        user.setEmail(email);
+
+        // 🔹 major / targetJob 은 일단 비워두고, 나중에 프로필 수정에서 채우도록
+        user.setMajor(null);
+        user.setTargetJob(null);
 
         // 소셜 정보 기본값 (NOT NULL 피하기용)
         user.setSocialType(SocialType.GOOGLE);
         user.setSocialNumber("GOOGLE-" + UUID.randomUUID());
 
-        /**
-         * 📌 최초 생성 시 프로필 완료 여부 반영
-         * major & targetJob 이 세팅되면 true
-         */
-        boolean completed =
-                req.major() != null && !req.major().isBlank() &&
-                        req.targetJob() != null && !req.targetJob().isBlank();
-        user.setProfileCompleted(completed);
+        // 📌 최초 생성 시에는 major/targetJob 없으니 profileCompleted = false
+        user.setProfileCompleted(false);
 
         userRepository.save(user);
         return toLearningProfileResponse(user);
+    }
+
+    /**
+     * [1️⃣-1 테스트/관리용 사용자 생성]
+     * - 이메일을 따로 받지 않고도 유저를 만들고 싶을 때 사용
+     * - 랜덤 테스트용 이메일을 생성해서 기존 create(email, req)를 재사용
+     */
+    public LearningProfileResponse create(CreateUserRequest req) {
+        String randomEmail = "test-" + UUID.randomUUID() + "@example.com";
+        return create(randomEmail, req);
     }
 
     /**
@@ -128,6 +140,39 @@ public class UserService {
     public LearningProfileResponse getLearningProfile(Long id) {
         User user = userRepository.findById(id)
                 .orElseThrow(() -> new UserNotFoundException(id));
+
+        return toLearningProfileResponse(user);
+    }
+
+    /**
+     * [6️⃣ 이메일 기준 로그인 or 자동 회원가입]
+     * - 구글 OAuth로부터 받은 email을 기준으로
+     *   1) 이미 존재하면: 해당 유저의 학습 프로필 반환
+     *   2) 없으면: 기본값으로 새 유저 생성 후 프로필 반환
+     */
+    public LearningProfileResponse loginOrCreateByEmail(String email) {
+        // 1) 이미 존재하는지 확인
+        User user = userRepository.findByEmail(email)
+                .orElseGet(() -> {
+                    // 2) 없으면 새로 생성
+                    User newUser = new User();
+                    newUser.setEmail(email);
+
+                    // 이메일 앞부분을 기본 닉네임으로 사용 (예: yunseo0154)
+                    String defaultNickname = email.split("@")[0];
+                    newUser.setNickname(defaultNickname);
+
+                    // 최초 생성 시 major/targetJob은 비워둠 → profileCompleted = false
+                    newUser.setMajor(null);
+                    newUser.setTargetJob(null);
+                    newUser.setProfileCompleted(false);
+
+                    // 소셜 정보 기본값 (구글 로그인 기준)
+                    newUser.setSocialType(SocialType.GOOGLE);
+                    newUser.setSocialNumber("GOOGLE-" + UUID.randomUUID());
+
+                    return userRepository.save(newUser);
+                });
 
         return toLearningProfileResponse(user);
     }
