@@ -1,8 +1,6 @@
 package com.careerpass.domain.user.service;
 
-import com.careerpass.domain.introduction.entity.IntroductionLearningHistory;
 import com.careerpass.domain.introduction.repository.IntroductionLearningHistoryRepository;
-import com.careerpass.domain.interview.entity.InterviewLearningRecord;
 import com.careerpass.domain.interview.repository.InterviewLearningRecordRepository;
 import com.careerpass.domain.user.dto.CreateUserRequest;
 import com.careerpass.domain.user.dto.LearningProfileResponse;
@@ -34,43 +32,65 @@ public class UserService {
             DateTimeFormatter.ofPattern("yyyy.MM.dd");
 
     /**
+     * [0️⃣ 로그인 or 자동 가입]
+     * - 프론트가 구글 OAuth로 받아온 email만 전달
+     * - 이미 존재하면 → 그대로 프로필 반환
+     * - 없으면      → email 기반 기본 닉네임으로 유저 생성 후 프로필 반환
+     */
+    public LearningProfileResponse loginOrCreateByEmail(String email) {
+
+        return userRepository.findByEmail(email)
+                .map(this::toLearningProfileResponse)
+                .orElseGet(() -> {
+
+                    // nickname 자동 생성하지 않음 → 빈 문자열로 저장
+                    String defaultNickname = "";
+
+                    User user = User.builder()
+                            .email(email)
+                            .nickname(defaultNickname)   // ⬅ 반드시 빈 문자열로
+                            .major(null)
+                            .targetJob(null)
+                            .profileCompleted(false)
+                            .socialType(SocialType.GOOGLE)
+                            .socialNumber("GOOGLE-" + UUID.randomUUID())
+                            .build();
+
+                    userRepository.save(user);
+                    return toLearningProfileResponse(user);
+                });
+    }
+
+    /**
      * [1️⃣ 사용자 생성]
-     * - 이메일은 OAuth 로그인 성공 시 백엔드에서 전달받음 (CreateUserRequest에는 없음)
+     * - Swagger 등에서 직접 테스트할 때 사용 (email 기반 생성)
      * - 이메일이 이미 존재하면 DuplicateEmailException(409)
      */
-    public LearningProfileResponse create(String email, CreateUserRequest req) {
-        // 이메일 중복 체크
+    public LearningProfileResponse create(CreateUserRequest req) {
+
+        String email = req.email();
+
         if (userRepository.existsByEmail(email)) {
             throw new DuplicateEmailException(email);
         }
 
-        User user = new User();
-        user.setNickname(req.nickname());       // 입력 받는 항목
-        user.setEmail(email);                   // OAuth 제공 이메일
-        user.setMajor(req.major());             // 입력 받는 항목
-        user.setTargetJob(req.targetJob());     // 입력 받는 항목
-
-        // 소셜 정보 기본값 (NOT NULL 피하기용)
-        user.setSocialType(SocialType.GOOGLE);
-        user.setSocialNumber("GOOGLE-" + UUID.randomUUID());
-
-        /**
-         * 📌 최초 생성 시 프로필 완료 여부 반영
-         * major & targetJob 이 세팅되면 true
-         */
-        boolean completed =
-                req.major() != null && !req.major().isBlank() &&
-                        req.targetJob() != null && !req.targetJob().isBlank();
-        user.setProfileCompleted(completed);
+        User user = User.builder()
+                .email(email)
+                .nickname("")
+                .major(null)
+                .targetJob(null)
+                .profileCompleted(false)
+                .socialType(SocialType.GOOGLE)
+                .socialNumber("GOOGLE-" + UUID.randomUUID())
+                .build();
 
         userRepository.save(user);
+
         return toLearningProfileResponse(user);
     }
 
     /**
-     * [2️⃣ 단일 조회]
-     * - id 기준으로 사용자 조회
-     * - 존재하지 않으면 UserNotFoundException 발생
+     * [2️⃣ 단일 조회 - id 기준]
      */
     public LearningProfileResponse getById(Long id) {
         User user = userRepository.findById(id)
@@ -80,9 +100,18 @@ public class UserService {
     }
 
     /**
+     * [2-2️⃣ 단일 조회 - email 기준]
+     * - /me 같은 곳에서 사용 가능
+     */
+    public LearningProfileResponse getByEmail(String email) {
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new UserNotFoundException("email=" + email));
+
+        return toLearningProfileResponse(user);
+    }
+
+    /**
      * [3️⃣ 전체 조회]
-     * - 모든 사용자 리스트 조회
-     * - (관리/테스트 용도, 실제 UI에서 안 쓰면 나중에 지워도 됨)
      */
     public List<LearningProfileResponse> getAll() {
         return userRepository.findAll().stream()
@@ -93,11 +122,11 @@ public class UserService {
     /**
      * [4️⃣ 프로필 수정]
      * - 이메일 제외 (닉네임, 전공, 목표 직무만 수정 가능)
-     * - profileCompleted 자동 업데이트
+     * - 닉네임 + 전공 + 목표 직무가 모두 채워져야 profileCompleted = true
      */
     public LearningProfileResponse updateProfile(Long id, UpdateProfileRequest req) {
         User user = userRepository.findById(id)
-                .orElseThrow(() -> new IllegalArgumentException("User not found"));
+                .orElseThrow(() -> new UserNotFoundException(id));
 
         if (req.nickname() != null) {
             user.setNickname(req.nickname());
@@ -109,21 +138,17 @@ public class UserService {
             user.setTargetJob(req.targetJob());
         }
 
-        /*
-         * 📌 update 후 프로필 완료 여부 다시 계산하여 반영
-         */
-        boolean completed =
-                user.getMajor() != null && !user.getMajor().isBlank() &&
-                        user.getTargetJob() != null && !user.getTargetJob().isBlank();
+        // 수정 후 profileCompleted 다시 계산 (닉네임 + 전공 + 목표 직무 모두 필요)
+        boolean completed = isProfileCompleted(user);
         user.setProfileCompleted(completed);
+
+        userRepository.save(user);
 
         return toLearningProfileResponse(user);
     }
 
     /**
      * [5️⃣ 학습프로필 조회]
-     * - 기본정보 + 학습프로필 완료 여부
-     * - 면접/자소서 학습 이력 전체 요약 리스트 포함
      */
     public LearningProfileResponse getLearningProfile(Long id) {
         User user = userRepository.findById(id)
@@ -134,14 +159,10 @@ public class UserService {
 
     /**
      * [💡 엔티티 → LearningProfileResponse 변환 메서드]
-     * - 기본정보 + 학습프로필 완료 여부
-     * - 인터뷰/자소서 리스트를 한 번에 세팅
+     * - 여기서도 동일 기준으로 profileCompleted 계산
      */
     private LearningProfileResponse toLearningProfileResponse(User user) {
-
-        boolean profileCompleted =
-                user.getMajor() != null && !user.getMajor().isBlank() &&
-                        user.getTargetJob() != null && !user.getTargetJob().isBlank();
+        boolean profileCompleted = isProfileCompleted(user);
 
         List<LearningProfileResponse.RecentInterviewSummary> interviewSummaries =
                 findInterviewSummaries(user.getId());
@@ -150,6 +171,7 @@ public class UserService {
                 findIntroductionSummaries(user.getId());
 
         return LearningProfileResponse.builder()
+                .id(user.getId())
                 .nickname(user.getNickname())
                 .email(user.getEmail())
                 .major(user.getMajor())
@@ -161,9 +183,19 @@ public class UserService {
     }
 
     /**
-     * 🔍 해당 유저의 면접 기록 전체를 요약 리스트로 변환
-     * - InterviewLearningRecordRepository.findByUserIdOrderByLearnedAtDesc 사용
+     * 학습 프로필 완료 여부 계산
+     * - 닉네임, 전공, 목표 직무가 모두 null/빈문자열이 아니어야 함
      */
+    private boolean isProfileCompleted(User user) {
+        return isNotBlank(user.getNickname())
+                && isNotBlank(user.getMajor())
+                && isNotBlank(user.getTargetJob());
+    }
+
+    private boolean isNotBlank(String s) {
+        return s != null && !s.trim().isEmpty();
+    }
+
     private List<LearningProfileResponse.RecentInterviewSummary> findInterviewSummaries(Long userId) {
         return interviewLearningRecordRepository
                 .findByUserIdOrderByLearnedAtDesc(userId)
@@ -178,18 +210,14 @@ public class UserService {
 
                     return LearningProfileResponse.RecentInterviewSummary.builder()
                             .interviewId(interviewId)
-                            .title(null)
-                            .score(null)
+                            .title(null)   // 필요 시 record에서 제목 필드 꺼내기
+                            .score(null)   // 필요 시 record에서 점수 필드 꺼내기
                             .date(date)
                             .build();
                 })
                 .toList();
     }
 
-    /**
-     * 🔍 해당 유저의 자기소개서 기록 전체를 요약 리스트로 변환
-     * - IntroductionLearningHistoryRepository.findByUserIdOrderByLearnedAtDesc 사용
-     */
     private List<LearningProfileResponse.RecentIntroductionSummary> findIntroductionSummaries(Long userId) {
         return introductionLearningHistoryRepository
                 .findByUserIdOrderByLearnedAtDesc(userId)
@@ -204,7 +232,7 @@ public class UserService {
 
                     return LearningProfileResponse.RecentIntroductionSummary.builder()
                             .introductionId(introductionId)
-                            .title(null)
+                            .title(null)   // 필요 시 제목 필드 매핑
                             .date(date)
                             .build();
                 })
