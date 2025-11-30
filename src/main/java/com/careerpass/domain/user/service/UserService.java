@@ -195,6 +195,7 @@ public class UserService {
                 findIntroductionSummaries(user.getId());
 
         return LearningProfileResponse.builder()
+                .id(user.getId())
                 .nickname(user.getNickname())
                 .email(user.getEmail())
                 .major(user.getMajor())
