@@ -39,26 +39,19 @@ public class UserService {
      */
     public LearningProfileResponse loginOrCreateByEmail(String email) {
 
-        // 1) 이미 존재하면 그대로 반환
         return userRepository.findByEmail(email)
                 .map(this::toLearningProfileResponse)
                 .orElseGet(() -> {
-                    // 2) 없으면 새 유저 생성
 
-                    // 닉네임 기본값: 이메일 앞부분
-                    String defaultNickname;
-                    if (email != null && email.contains("@")) {
-                        defaultNickname = email.substring(0, email.indexOf("@"));
-                    } else {
-                        defaultNickname = "user";
-                    }
+                    // nickname 자동 생성하지 않음 → 빈 문자열로 저장
+                    String defaultNickname = "";
 
                     User user = User.builder()
                             .email(email)
-                            .nickname(defaultNickname)   // 로그인 직후 바로 보여줄 닉네임
-                            .major(null)                // 미설정
-                            .targetJob(null)            // 미설정
-                            .profileCompleted(false)    // 처음엔 무조건 false
+                            .nickname(defaultNickname)   // ⬅ 반드시 빈 문자열로
+                            .major(null)
+                            .targetJob(null)
+                            .profileCompleted(false)
                             .socialType(SocialType.GOOGLE)
                             .socialNumber("GOOGLE-" + UUID.randomUUID())
                             .build();
@@ -83,7 +76,7 @@ public class UserService {
 
         User user = User.builder()
                 .email(email)
-                .nickname(null)
+                .nickname("")
                 .major(null)
                 .targetJob(null)
                 .profileCompleted(false)
