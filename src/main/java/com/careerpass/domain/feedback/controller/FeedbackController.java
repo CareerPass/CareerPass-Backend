@@ -11,6 +11,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import com.careerpass.domain.feedback.dto.IntroductionAiDtos.IntroFeedbackRequest;
+import com.careerpass.domain.feedback.dto.IntroductionAiDtos.IntroFeedbackResponse;
 
 import java.util.List;
 
@@ -48,5 +50,16 @@ public class FeedbackController {
     @GetMapping("/interview/{interviewId}")
     public ResponseEntity<List<Response>> listByInterview(@PathVariable @Positive Long interviewId) {
         return ResponseEntity.ok(feedbackService.listByInterview(interviewId));
+    }
+
+
+    // ===================== 🔹 자소서 AI 피드백 (파이썬 호출) =====================
+    @Operation(summary = "자기소개서 AI 피드백 생성 (Python AI)")
+    @PostMapping("/introduction/ai")
+    public ResponseEntity<IntroFeedbackResponse> createIntroAiFeedback(
+            @RequestBody @Valid IntroFeedbackRequest req
+    ) {
+        IntroFeedbackResponse response = feedbackService.createIntroAiFeedback(req);
+        return ResponseEntity.ok(response);
     }
 }
