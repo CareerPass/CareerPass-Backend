@@ -7,8 +7,17 @@ import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.web.servlet.config.annotation.CorsRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
+import org.springframework.security.oauth2.core.oidc.user.OidcUser;
+
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
+
 @Configuration
 public class SecurityConfig {
+
+    // 프론트 엔드 주소 (지금은 로컬 개발 기준)
+    // 👉 프론트 dev 서버 주소로 맞춰줘 (npm run dev 쓰면 보통 5173)
+    private static final String FRONT_BASE_URL = "http://localhost:5173";
 
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
@@ -31,10 +40,12 @@ public class SecurityConfig {
                                 "/swagger-ui.html",
                                 // 프론트에서 호출하는 모든 API 임시 오픈
                                 "/api/**",
-                                // 혹시 쓸 수도 있는 /me 엔드포인트
-                                "/me"
+                                // /me 엔드포인트
+                                "/me",
+                                // OAuth 관련 엔드포인트
+                                "/oauth2/**",
+                                "/login/oauth2/**"
                         ).permitAll()
-                        // 그 외는 인증 필요 (지금은 사실상 없음)
                         .anyRequest().authenticated()
                 )
 
@@ -42,9 +53,20 @@ public class SecurityConfig {
                 .formLogin(form -> form.disable())
                 .httpBasic(basic -> basic.disable())
 
-        // ✅ 서버 쪽 OAuth2 로그인은 잠시 끈다 (프론트에서만 처리할 거라서)
-        // .oauth2Login(oauth -> {})   // <- 이 줄 완전히 제거 또는 주석
-        ;
+                // ✅ 서버 OAuth2 로그인 다시 활성화 + 성공 시 프론트로 리다이렉트
+                .oauth2Login(oauth -> oauth
+                        .successHandler((request, response, authentication) -> {
+                            OidcUser oidcUser = (OidcUser) authentication.getPrincipal();
+                            String email = oidcUser.getEmail();
+
+                            // email URL 인코딩
+                            String encodedEmail = URLEncoder.encode(email, StandardCharsets.UTF_8);
+
+                            // 프론트로 리다이렉트 (쿼리에 email 넘겨줌)
+                            String redirectUrl = FRONT_BASE_URL + "/?email=" + encodedEmail;
+                            response.sendRedirect(redirectUrl);
+                        })
+                );
 
         return http.build();
     }
@@ -57,12 +79,11 @@ public class SecurityConfig {
             public void addCorsMappings(CorsRegistry registry) {
                 registry.addMapping("/**")
                         .allowedOrigins(
-                                // 배포 전이라 그냥 전부 허용
                                 "*"
                         )
                         .allowedMethods("GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS")
                         .allowedHeaders("*")
-                        .allowCredentials(false)  // "*" 쓸 때는 false가 안전
+                        .allowCredentials(false)
                         .maxAge(3600);
             }
         };
