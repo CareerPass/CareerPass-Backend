@@ -10,6 +10,8 @@ import java.util.List;
 @Builder
 public class LearningProfileResponse {
 
+    private Long id;             // 사용자 ID
+
     // 1. 기본 정보
     private String nickname;       // 사용자 이름
     private String email;      // 구글에서 들고온 이메일

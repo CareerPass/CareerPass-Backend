@@ -13,56 +13,43 @@ public class SecurityConfig {
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http
-                // ✅ CORS 활성화
+                // CORS
                 .cors(cors -> {})
 
-                // 🔒 CSRF (API 위주면 disable)
+                // CSRF (API 위주라 비활성화)
                 .csrf(csrf -> csrf.disable())
 
-                // ✅ 접근 권한 설정
+                // 🔐 인가 설정
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(
-                                "/",                // 루트
-                                "/health",          // 단순 헬스
-                                "/api/health",      // API 헬스
+                                "/",              // 루트
+                                "/health",
                                 "/error",
-
-                                // ✅ Swagger 관련 URL 전부 허용
+                                // Swagger
                                 "/v3/api-docs/**",
                                 "/swagger-ui/**",
                                 "/swagger-ui.html",
-
-                                // ✅ 로그아웃 성공 페이지
-                                "/logout-success"
+                                // 프론트에서 호출하는 모든 API 임시 오픈
+                                "/api/**",
+                                // 혹시 쓸 수도 있는 /me 엔드포인트
+                                "/me"
                         ).permitAll()
-
-                        // 🧷 그 외 모든 요청은 로그인 필요
-                        // /me, /api/users/**, /api/roadmap/**, /api/introductions/** 등 전부 포함
+                        // 그 외는 인증 필요 (지금은 사실상 없음)
                         .anyRequest().authenticated()
                 )
 
-                // 폼로그인/기본 인증은 사용 안 함 (우린 OAuth2만)
+                // 폼 로그인/Basic 인증 사용 안 함
                 .formLogin(form -> form.disable())
                 .httpBasic(basic -> basic.disable())
 
-                // ✅ OAuth2 로그인 (구글)
-                .oauth2Login(oauth -> oauth
-                        // 로그인 성공 시 프론트 콜백으로 리다이렉트
-                        .defaultSuccessUrl("http://localhost:3000/auth/callback", true)
-                )
-
-                // ✅ 로그아웃 설정
-                .logout(logout -> logout
-                        .logoutUrl("/logout")
-                        .logoutSuccessUrl("/logout-success")
-                        .invalidateHttpSession(true)
-                        .deleteCookies("JSESSIONID")
-                );
+        // ✅ 서버 쪽 OAuth2 로그인은 잠시 끈다 (프론트에서만 처리할 거라서)
+        // .oauth2Login(oauth -> {})   // <- 이 줄 완전히 제거 또는 주석
+        ;
 
         return http.build();
     }
 
-    // ✅ 개발용 CORS (프론트 → API 호출 허용)
+    // 개발용 CORS (프론트 → API 호출 허용)
     @Bean
     public WebMvcConfigurer corsConfigurer() {
         return new WebMvcConfigurer() {
@@ -70,13 +57,12 @@ public class SecurityConfig {
             public void addCorsMappings(CorsRegistry registry) {
                 registry.addMapping("/**")
                         .allowedOrigins(
-                                "http://localhost:3000"
-                                // 배포 프론트 생기면 여기 추가
-                                // "http://13.125.192.47:3000"
+                                // 배포 전이라 그냥 전부 허용
+                                "*"
                         )
                         .allowedMethods("GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS")
                         .allowedHeaders("*")
-                        .allowCredentials(true)
+                        .allowCredentials(false)  // "*" 쓸 때는 false가 안전
                         .maxAge(3600);
             }
         };
