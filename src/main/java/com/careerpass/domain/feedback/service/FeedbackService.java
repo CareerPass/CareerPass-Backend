@@ -22,9 +22,7 @@ public class FeedbackService {
     private final FeedbackRepository feedbackRepository;
 
     // 🔹 파이썬 Resume AI 서버 WebClient
-    private final WebClient resumeAiClient = WebClient.builder()
-            .baseUrl("http://localhost:8000") // 지금 uvicorn 띄운 주소
-            .build();
+    private final WebClient aiWebClient;
 
     // 피드백 생성
     @Transactional
@@ -72,7 +70,7 @@ public class FeedbackService {
     public IntroFeedbackResponse createIntroAiFeedback(IntroFeedbackRequest req) {
 
         try {
-            return resumeAiClient.post()
+            return aiWebClient.post()
                     .uri("/resume/resume/feedback")   // 🔴 파이썬 @resume_router.post("/resume/feedback")
                     .bodyValue(req)           // { "userId": .., "resumeContent": "..." }
                     .retrieve()
@@ -94,7 +92,7 @@ public class FeedbackService {
     public InterviewAiDtos.AnswerAnalysisResultDto analyzeInterviewAnswer(InterviewAiDtos.AnswerDispatchDto dispatch) {
 
         try {
-            return resumeAiClient.post()
+            return aiWebClient.post()
                     .uri("/analysis/interview/run") // 🔴 파이썬 interview_router 엔드포인트
                     .bodyValue(dispatch)
                     .retrieve()
