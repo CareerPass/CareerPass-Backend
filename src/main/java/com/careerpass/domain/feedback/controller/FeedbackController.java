@@ -2,7 +2,8 @@ package com.careerpass.domain.feedback.controller;
 
 import com.careerpass.domain.feedback.dto.FeedbackDtos.CreateRequest;
 import com.careerpass.domain.feedback.dto.FeedbackDtos.Response;
-    import com.careerpass.domain.feedback.service.FeedbackService;
+import com.careerpass.domain.feedback.dto.InterviewAiDtos;
+import com.careerpass.domain.feedback.service.FeedbackService;
 import io.swagger.v3.oas.annotations.Operation;
 import jakarta.validation.Valid;
     import jakarta.validation.constraints.Positive;
@@ -61,5 +62,15 @@ public class FeedbackController {
     ) {
         IntroFeedbackResponse response = feedbackService.createIntroAiFeedback(req);
         return ResponseEntity.ok(response);
+    }
+
+    // ===================== 🔹 면접 AI 답변 분석 (Python AI) =====================
+    @Operation(summary = "면접 AI 답변 분석 (Python AI)")
+    @PostMapping("/interview/ai")
+    public ResponseEntity<InterviewAiDtos.AnswerAnalysisResultDto> analyzeInterviewAnswer(
+            @RequestBody @Valid InterviewAiDtos.AnswerDispatchDto req
+    ) {
+        InterviewAiDtos.AnswerAnalysisResultDto result = feedbackService.analyzeInterviewAnswer(req);
+        return ResponseEntity.ok(result);
     }
 }
