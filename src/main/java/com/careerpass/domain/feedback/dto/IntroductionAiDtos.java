@@ -1,5 +1,6 @@
 package com.careerpass.domain.feedback.dto;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 
@@ -25,7 +26,11 @@ public class IntroductionAiDtos {
      * (FeedbackResponse와 동일 구조)
      */
     public record IntroFeedbackResponse(
+            Long userId,
             String feedback,
-            Long userId
+            @JsonProperty("original_resume")
+            String originalResume,
+            @JsonProperty("regen_resume")
+            String regenResume
     ) {}
 }
