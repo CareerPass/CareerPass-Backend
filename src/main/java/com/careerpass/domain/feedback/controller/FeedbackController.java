@@ -14,6 +14,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import com.careerpass.domain.feedback.dto.IntroductionAiDtos.IntroFeedbackRequest;
 import com.careerpass.domain.feedback.dto.IntroductionAiDtos.IntroFeedbackResponse;
+import reactor.core.publisher.Mono;
 
 import java.util.List;
 
@@ -57,11 +58,10 @@ public class FeedbackController {
     // ===================== 🔹 자소서 AI 피드백 (파이썬 호출) =====================
     @Operation(summary = "자기소개서 AI 피드백 생성 (Python AI)")
     @PostMapping("/introduction/ai")
-    public ResponseEntity<IntroFeedbackResponse> createIntroAiFeedback(
+    public Mono<IntroFeedbackResponse> createIntroAiFeedback(
             @RequestBody @Valid IntroFeedbackRequest req
     ) {
-        IntroFeedbackResponse response = feedbackService.createIntroAiFeedback(req);
-        return ResponseEntity.ok(response);
+        return feedbackService.createIntroAiFeedback(req);
     }
 
     // ===================== 🔹 면접 AI 답변 분석 (Python AI) =====================
