@@ -31,6 +31,8 @@ public class IntroductionAiDtos {
             @JsonProperty("original_resume")
             String originalResume,
             @JsonProperty("regen_resume")
-            String regenResume
+            String regenResume,
+            @JsonProperty("regen_toss_resume")
+            String regenTossResume
     ) {}
 }
