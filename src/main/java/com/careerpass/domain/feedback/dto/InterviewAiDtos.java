@@ -18,7 +18,6 @@ public class InterviewAiDtos {
             Long answerId,
             String questionText,
             String transcript,
-            Long durationMs,
             String resumeContent,
             InterviewMetaDto meta
     ) {}

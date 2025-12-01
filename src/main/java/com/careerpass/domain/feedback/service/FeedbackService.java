@@ -93,7 +93,7 @@ public class FeedbackService {
 
         try {
             return aiWebClient.post()
-                    .uri("/analysis/interview/run") // 🔴 파이썬 interview_router 엔드포인트
+                    .uri("/interview/analysis/interview/run") // 🔴 파이썬 interview_router 엔드포인트
                     .bodyValue(dispatch)
                     .retrieve()
                     .bodyToMono(InterviewAiDtos.AnswerAnalysisResultDto.class)
