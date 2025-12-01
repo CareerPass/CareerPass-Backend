@@ -88,7 +88,8 @@ public class QuestionGenService {
      * 🔹 AI(question_ai.py)가 반환하는 JSON 형식
      * { "questions": ["질문1", "질문2", ...] }
      */
-    private record QuestionAiResponse(List<String> questions) {}
+    private record QuestionAiResponse(@com.fasterxml.jackson.annotation.JsonProperty("question")
+                                      List<String> questions) {}
 
     /**
      * 🔹 질문 AI 서버로 보내는 요청 JSON 형식

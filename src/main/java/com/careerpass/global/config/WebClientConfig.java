@@ -15,7 +15,7 @@ public class WebClientConfig {
     @Bean
     public WebClient aiWebClient() {
         return WebClient.builder()
-                .baseUrl("http://localhost:8088")  // FastAPI 서버 주소
+                .baseUrl("http://13.125.192.47:8088")  // FastAPI 서버 주소
                 .build();
     }
 
