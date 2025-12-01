@@ -2,6 +2,7 @@ package com.careerpass.domain.feedback.service;
 
 import com.careerpass.domain.feedback.dto.FeedbackDtos.CreateRequest;
 import com.careerpass.domain.feedback.dto.FeedbackDtos.Response;
+import com.careerpass.domain.feedback.dto.InterviewAiDtos;
 import com.careerpass.domain.feedback.entity.Feedback;
 import com.careerpass.domain.feedback.repository.FeedbackRepository;
 import lombok.RequiredArgsConstructor;
@@ -85,6 +86,27 @@ public class FeedbackService {
             throw new RuntimeException("Python Resume AI 서버 연결 중 오류 발생", ex);
         }
     }
+
+    /**
+     * 면접 답변 AI 분석 (파이썬 FastAPI 호출)
+     */
+    @Transactional(readOnly = true)
+    public InterviewAiDtos.AnswerAnalysisResultDto analyzeInterviewAnswer(InterviewAiDtos.AnswerDispatchDto dispatch) {
+
+        try {
+            return resumeAiClient.post()
+                    .uri("/analysis/interview/run") // 🔴 파이썬 interview_router 엔드포인트
+                    .bodyValue(dispatch)
+                    .retrieve()
+                    .bodyToMono(InterviewAiDtos.AnswerAnalysisResultDto.class)
+                    .block();
+        } catch (WebClientResponseException ex) {
+            throw new RuntimeException("Python Interview AI 서버 호출 실패: " + ex.getResponseBodyAsString(), ex);
+        } catch (Exception ex) {
+            throw new RuntimeException("Python Interview AI 서버 연결 중 오류 발생", ex);
+        }
+    }
+
 
 
     private Response toDto(Feedback f) {
