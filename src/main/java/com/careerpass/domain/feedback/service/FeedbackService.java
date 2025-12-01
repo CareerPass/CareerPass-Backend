@@ -72,7 +72,7 @@ public class FeedbackService {
 
         try {
             return resumeAiClient.post()
-                    .uri("/resume/feedback")   // 🔴 파이썬 @resume_router.post("/resume/feedback")
+                    .uri("/resume/resume/feedback")   // 🔴 파이썬 @resume_router.post("/resume/feedback")
                     .bodyValue(req)           // { "userId": .., "resumeContent": "..." }
                     .retrieve()
                     .bodyToMono(IntroFeedbackResponse.class)
