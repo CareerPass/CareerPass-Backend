@@ -12,6 +12,7 @@ import com.careerpass.domain.feedback.dto.IntroductionAiDtos.IntroFeedbackReques
 import com.careerpass.domain.feedback.dto.IntroductionAiDtos.IntroFeedbackResponse;
 import org.springframework.web.reactive.function.client.WebClient;
 import org.springframework.web.reactive.function.client.WebClientResponseException;
+import reactor.core.publisher.Mono;
 
 import java.util.List;
 
@@ -67,22 +68,36 @@ public class FeedbackService {
      * 자소서 AI 피드백 생성 (파이썬 FastAPI 호출)
      */
     @Transactional(readOnly = true)
-    public IntroFeedbackResponse createIntroAiFeedback(IntroFeedbackRequest req) {
+    public Mono<IntroFeedbackResponse> createIntroAiFeedback(IntroFeedbackRequest req) {
 
-        try {
-            return aiWebClient.post()
-                    .uri("/resume/resume/feedback")   // 🔴 파이썬 @resume_router.post("/resume/feedback")
-                    .bodyValue(req)           // { "userId": .., "resumeContent": "..." }
-                    .retrieve()
-                    .bodyToMono(IntroFeedbackResponse.class)
-                    .block();
-        } catch (WebClientResponseException ex) {
-            // 파이썬 쪽 4xx/5xx
-            throw new RuntimeException("Python Resume AI 서버 호출 실패: " + ex.getResponseBodyAsString(), ex);
-        } catch (Exception ex) {
-            // 네트워크 등 기타 오류
-            throw new RuntimeException("Python Resume AI 서버 연결 중 오류 발생", ex);
-        }
+        String originalContent = req.resumeContent();
+
+        String cleanedContent = originalContent;
+
+        cleanedContent = cleanedContent
+                .replaceAll("[\r\n\t]+", " ");
+
+        cleanedContent = cleanedContent
+                .replaceAll("“", "\"").replaceAll("”", "\"")
+                .replaceAll("‘", "'").replaceAll("’", "'");
+
+        cleanedContent = cleanedContent
+                .replaceAll("\\u00A0", " ")
+                .replaceAll("\\u200B", " ");
+
+        cleanedContent = cleanedContent.replaceAll(" {2,}", " ").trim();
+
+        IntroFeedbackRequest cleanReq = new IntroFeedbackRequest(
+                req.userId(),
+                cleanedContent
+        );
+
+        return aiWebClient.post()
+                .uri("/resume/resume/feedback")
+                .bodyValue(cleanReq)
+                .retrieve()
+                .bodyToMono(IntroFeedbackResponse.class)
+                .onErrorMap(WebClientResponseException.class, ex -> new RuntimeException("Python 서버 오류", ex));
     }
 
     /**
