@@ -3,6 +3,7 @@ package com.careerpass.global.error;
 import com.careerpass.domain.introduction.exception.IntroductionNotFoundException;
 import com.careerpass.global.error.ErrorResponse.FieldError;
 import jakarta.validation.ConstraintViolationException;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.HttpMediaTypeNotSupportedException;
@@ -11,7 +12,12 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.context.request.async.AsyncRequestTimeoutException;
+import org.springframework.web.reactive.function.client.WebClientRequestException;
+import org.springframework.web.reactive.function.client.WebClientResponseException;
+import org.springframework.web.server.ResponseStatusException;
 
+import java.util.concurrent.TimeoutException;
 import java.util.stream.Collectors;
 
 @RestControllerAdvice
@@ -98,6 +104,58 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(HttpMediaTypeNotSupportedException.class)
     public ResponseEntity<String> handleUnsupported(HttpMediaTypeNotSupportedException e) {
         return ResponseEntity.status(415).body("지원하지 않는 Content-Type 입니다.");
+    }
+
+    // WebClient 4xx/5xx 응답
+    @ExceptionHandler(WebClientResponseException.class)
+    public ResponseEntity<ErrorResponse> handleWebClientResponse(WebClientResponseException e) {
+        return ResponseEntity
+                .status(e.getStatusCode())
+                .body(new ErrorResponse(
+                        "PYTHON_API_RESPONSE_ERROR",
+                        e.getStatusCode().value(),
+                        e.getResponseBodyAsString(),
+                        null
+                ));
+    }
+
+    // WebClient 요청/연결 실패
+    @ExceptionHandler(WebClientRequestException.class)
+    public ResponseEntity<ErrorResponse> handleWebClientRequest(WebClientRequestException e) {
+        return ResponseEntity
+                .status(HttpStatus.BAD_GATEWAY)
+                .body(new ErrorResponse(
+                        "PYTHON_API_REQUEST_ERROR",
+                        HttpStatus.BAD_GATEWAY.value(),
+                        e.getMessage(),
+                        null
+                ));
+    }
+
+    // 타임아웃 (WebClient 또는 서블릿 비동기)
+    @ExceptionHandler({TimeoutException.class, AsyncRequestTimeoutException.class})
+    public ResponseEntity<ErrorResponse> handleTimeouts(Exception e) {
+        return ResponseEntity
+                .status(HttpStatus.GATEWAY_TIMEOUT)
+                .body(new ErrorResponse(
+                        "PYTHON_API_TIMEOUT",
+                        HttpStatus.GATEWAY_TIMEOUT.value(),
+                        "AI 서버 응답이 시간 제한을 초과했습니다.",
+                        null
+                ));
+    }
+
+    // 서비스 레이어에서 전달되는 ResponseStatusException 유지
+    @ExceptionHandler(ResponseStatusException.class)
+    public ResponseEntity<ErrorResponse> handleResponseStatus(ResponseStatusException e) {
+        return ResponseEntity
+                .status(e.getStatusCode())
+                .body(new ErrorResponse(
+                        e.getStatusCode().toString(),
+                        e.getStatusCode().value(),
+                        e.getReason(),
+                        null
+                ));
     }
 
     // ❌ (중복 제거) @ExceptionHandler(Exception.class)
