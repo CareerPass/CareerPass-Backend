@@ -3,19 +3,23 @@ package com.careerpass.domain.feedback.service;
 import com.careerpass.domain.feedback.dto.FeedbackDtos.CreateRequest;
 import com.careerpass.domain.feedback.dto.FeedbackDtos.Response;
 import com.careerpass.domain.feedback.dto.InterviewAiDtos;
+import com.careerpass.domain.feedback.dto.IntroductionAiDtos.IntroFeedbackRequest;
+import com.careerpass.domain.feedback.dto.IntroductionAiDtos.IntroFeedbackResponse;
 import com.careerpass.domain.feedback.entity.Feedback;
 import com.careerpass.domain.feedback.repository.FeedbackRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import com.careerpass.domain.feedback.dto.IntroductionAiDtos.IntroFeedbackRequest;
-import com.careerpass.domain.feedback.dto.IntroductionAiDtos.IntroFeedbackResponse;
 import org.springframework.web.reactive.function.client.WebClient;
+import org.springframework.web.reactive.function.client.WebClientRequestException;
 import org.springframework.web.reactive.function.client.WebClientResponseException;
+import org.springframework.web.server.ResponseStatusException;
 import reactor.core.publisher.Mono;
 
 import java.time.Duration;
 import java.util.List;
+import java.util.concurrent.TimeoutException;
 
 @Service
 @RequiredArgsConstructor
@@ -102,16 +106,18 @@ public class FeedbackService {
                 .retrieve()
                 .bodyToMono(IntroFeedbackResponse.class)
                 .timeout(Duration.ofSeconds(60))
-                .onErrorMap(WebClientResponseException.class, ex -> new RuntimeException("Python 서버 오류", ex))
-                .onErrorMap(WebClientResponseException.class, ex -> {
-                    //  로그 추가: WebClient 4xx/5xx 에러 발생 시 로그
-                    System.err.println("[AI 통신 오류] Python 서버에서 4xx/5xx 응답: " + ex.getStatusCode() + ", Body: " + ex.getResponseBodyAsString());
-                    return new RuntimeException("Python 서버 오류", ex);
-                })
-                .doOnError(throwable -> {
-                    //  로그 추가: 네트워크/타임아웃 등 기타 에러 발생 시 로그
-                    System.err.println("[AI 통신 실패] 네트워크 또는 타임아웃 오류 발생: " + throwable.getMessage());
-                });
+                .doOnError(WebClientResponseException.class, ex ->
+                        System.err.println("[AI 통신 오류] Python 서버에서 4xx/5xx 응답: " + ex.getStatusCode() + ", Body: " + ex.getResponseBodyAsString()))
+                .doOnError(WebClientRequestException.class, ex ->
+                        System.err.println("[AI 통신 오류] Python 서버 연결 실패: " + ex.getMessage()))
+                .doOnError(TimeoutException.class, ex ->
+                        System.err.println("[AI 통신 실패] Python 응답 지연: " + ex.getMessage()))
+                .onErrorMap(WebClientResponseException.class, ex ->
+                        new ResponseStatusException(ex.getStatusCode(), "Python 서버 오류", ex))
+                .onErrorMap(WebClientRequestException.class, ex ->
+                        new ResponseStatusException(HttpStatus.BAD_GATEWAY, "Python 서버 연결 실패", ex))
+                .onErrorMap(TimeoutException.class, ex ->
+                        new ResponseStatusException(HttpStatus.GATEWAY_TIMEOUT, "Python 서버 응답 타임아웃", ex));
     }
 
     /**
