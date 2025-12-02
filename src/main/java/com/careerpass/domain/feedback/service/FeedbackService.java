@@ -14,6 +14,7 @@ import org.springframework.web.reactive.function.client.WebClient;
 import org.springframework.web.reactive.function.client.WebClientResponseException;
 import reactor.core.publisher.Mono;
 
+import java.time.Duration;
 import java.util.List;
 
 @Service
@@ -92,12 +93,25 @@ public class FeedbackService {
                 cleanedContent
         );
 
+        System.out.println("[AI 통신 시작] WebClient POST 요청을 Python AI 서버 (http://localhost:8088/resume/resume/feedback)로 보냅니다.");
+        System.out.println("[요청 내용] userId: " + cleanReq.userId() + ", content length: " + cleanReq.resumeContent().length());
+
         return aiWebClient.post()
                 .uri("/resume/resume/feedback")
                 .bodyValue(cleanReq)
                 .retrieve()
                 .bodyToMono(IntroFeedbackResponse.class)
-                .onErrorMap(WebClientResponseException.class, ex -> new RuntimeException("Python 서버 오류", ex));
+                .timeout(Duration.ofSeconds(60))
+                .onErrorMap(WebClientResponseException.class, ex -> new RuntimeException("Python 서버 오류", ex))
+                .onErrorMap(WebClientResponseException.class, ex -> {
+                    //  로그 추가: WebClient 4xx/5xx 에러 발생 시 로그
+                    System.err.println("[AI 통신 오류] Python 서버에서 4xx/5xx 응답: " + ex.getStatusCode() + ", Body: " + ex.getResponseBodyAsString());
+                    return new RuntimeException("Python 서버 오류", ex);
+                })
+                .doOnError(throwable -> {
+                    //  로그 추가: 네트워크/타임아웃 등 기타 에러 발생 시 로그
+                    System.err.println("[AI 통신 실패] 네트워크 또는 타임아웃 오류 발생: " + throwable.getMessage());
+                });
     }
 
     /**
