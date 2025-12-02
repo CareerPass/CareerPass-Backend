@@ -15,9 +15,8 @@ import java.nio.charset.StandardCharsets;
 @Configuration
 public class SecurityConfig {
 
-    // 프론트 엔드 주소 (지금은 로컬 개발 기준)
-    // 👉 프론트 dev 서버 주소로 맞춰줘 (npm run dev 쓰면 보통 5173)
-    private static final String FRONT_BASE_URL = "http://localhost:5173";
+    // 프론트 엔드 주소 (로컬 개발 기준: 3000)
+    private static final String FRONT_BASE_URL = "http://localhost:3000";
 
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
@@ -53,7 +52,7 @@ public class SecurityConfig {
                 .formLogin(form -> form.disable())
                 .httpBasic(basic -> basic.disable())
 
-                // ✅ 서버 OAuth2 로그인 다시 활성화 + 성공 시 프론트로 리다이렉트
+                // ✅ OAuth2 로그인 성공 시 프론트로 리다이렉트
                 .oauth2Login(oauth -> oauth
                         .successHandler((request, response, authentication) -> {
                             OidcUser oidcUser = (OidcUser) authentication.getPrincipal();
@@ -79,7 +78,7 @@ public class SecurityConfig {
             public void addCorsMappings(CorsRegistry registry) {
                 registry.addMapping("/**")
                         .allowedOrigins(
-                                "http://localhost:3000"       // 프론트 dev 주소
+                                "http://localhost:3000" // 프론트 dev 주소
                         )
                         .allowedMethods("GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS")
                         .allowedHeaders("*")
