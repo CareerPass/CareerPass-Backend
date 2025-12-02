@@ -106,10 +106,56 @@ public class FeedbackService {
     @Transactional(readOnly = true)
     public InterviewAiDtos.AnswerAnalysisResultDto analyzeInterviewAnswer(InterviewAiDtos.AnswerDispatchDto dispatch) {
 
+        String originalQuestionText = dispatch.questionText();
+        String originalTranscript = dispatch.transcript();
+        String originalResumeContent = dispatch.resumeContent();
+
+
+        String cleanedQuestionText = originalQuestionText;
+        if (cleanedQuestionText != null) {
+            cleanedQuestionText = cleanedQuestionText
+                    .replaceAll("[\r\n\t]+", " ")
+                    .replaceAll("“", "\"").replaceAll("”", "\"")
+                    .replaceAll("‘", "'").replaceAll("’", "'")
+                    .replaceAll("\\u00A0", " ")
+                    .replaceAll("\\u200B", " ")
+                    .replaceAll(" {2,}", " ").trim();
+        }
+
+        String cleanedTranscript = originalTranscript;
+        if (cleanedTranscript != null) {
+            cleanedTranscript = cleanedTranscript
+                    .replaceAll("[\r\n\t]+", " ")
+                    .replaceAll("“", "\"").replaceAll("”", "\"")
+                    .replaceAll("‘", "'").replaceAll("’", "'")
+                    .replaceAll("\\u00A0", " ")
+                    .replaceAll("\\u200B", " ")
+                    .replaceAll(" {2,}", " ").trim();
+        }
+
+        String cleanedResumeContent = originalResumeContent;
+        if (cleanedResumeContent != null) {
+            cleanedResumeContent = cleanedResumeContent
+                    .replaceAll("[\r\n\t]+", " ")
+                    .replaceAll("“", "\"").replaceAll("”", "\"")
+                    .replaceAll("‘", "'").replaceAll("’", "'")
+                    .replaceAll("\\u00A0", " ")
+                    .replaceAll("\\u200B", " ")
+                    .replaceAll(" {2,}", " ").trim();
+        }
+
+        InterviewAiDtos.AnswerDispatchDto cleanDispatch = new InterviewAiDtos.AnswerDispatchDto(
+                dispatch.answerId(),
+                cleanedQuestionText,
+                cleanedTranscript,
+                cleanedResumeContent,
+                dispatch.meta()
+        );
+
         try {
             return aiWebClient.post()
                     .uri("/interview/analysis/interview/run") // 🔴 파이썬 interview_router 엔드포인트
-                    .bodyValue(dispatch)
+                    .bodyValue(cleanDispatch)
                     .retrieve()
                     .bodyToMono(InterviewAiDtos.AnswerAnalysisResultDto.class)
                     .block();
