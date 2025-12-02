@@ -79,11 +79,11 @@ public class SecurityConfig {
             public void addCorsMappings(CorsRegistry registry) {
                 registry.addMapping("/**")
                         .allowedOrigins(
-                                "*"
+                                "http://localhost:3000"       // 프론트 dev 주소
                         )
                         .allowedMethods("GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS")
                         .allowedHeaders("*")
-                        .allowCredentials(false)
+                        .allowCredentials(true)
                         .maxAge(3600);
             }
         };
