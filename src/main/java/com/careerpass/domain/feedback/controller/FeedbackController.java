@@ -5,8 +5,12 @@ import com.careerpass.domain.feedback.dto.FeedbackDtos.Response;
 import com.careerpass.domain.feedback.dto.InterviewAiDtos;
 import com.careerpass.domain.feedback.service.FeedbackService;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Encoding;
 import jakarta.validation.Valid;
     import jakarta.validation.constraints.Positive;
+import org.springframework.http.MediaType;
 import org.springframework.validation.annotation.Validated;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -14,6 +18,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import com.careerpass.domain.feedback.dto.IntroductionAiDtos.IntroFeedbackRequest;
 import com.careerpass.domain.feedback.dto.IntroductionAiDtos.IntroFeedbackResponse;
+import org.springframework.web.multipart.MultipartFile;
 import reactor.core.publisher.Mono;
 
 import java.util.List;
@@ -65,12 +70,31 @@ public class FeedbackController {
     }
 
     // ===================== 🔹 면접 AI 답변 분석 (Python AI) =====================
-    @Operation(summary = "면접 AI 답변 분석 (Python AI)")
-    @PostMapping("/interview/ai")
-    public ResponseEntity<InterviewAiDtos.AnswerAnalysisResultDto> analyzeInterviewAnswer(
-            @RequestBody @Valid InterviewAiDtos.AnswerDispatchDto req
+    @Operation(summary = "면접 음성 답변 처리 (STT -> AI 분석 -> 저장)")
+    @PostMapping(value = "/interview/ai", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @io.swagger.v3.oas.annotations.parameters.RequestBody(
+            content = @Content(
+                    mediaType = MediaType.MULTIPART_FORM_DATA_VALUE,
+                    // ...
+                    encoding = {
+                            // 🚨 여기가 핵심: meta 파트를 JSON으로 인코딩하도록 명시
+                            @Encoding(name = "meta", contentType = "application/json"),
+                            // file 파트는 바이너리 스트림
+                            @Encoding(name = "file", contentType = "application/octet-stream")
+                    }
+            )
+    )
+    public ResponseEntity<InterviewAiDtos.AnswerAnalysisResultDto> processInterviewAnswer(
+            // 프론트에서 전송된 JSON 형태의 메타데이터를 받습니다.
+            @RequestPart("meta") @Valid InterviewAiDtos.SttRequestMetaDto meta,
+            // 프론트에서 전송된 음성 파일 (.m4a, .mp3 등)을 받습니다.
+            @Parameter(
+                    description = "업로드할 음성 파일",
+                    required = true
+            )
+            @RequestPart("file") MultipartFile file
     ) {
-        InterviewAiDtos.AnswerAnalysisResultDto result = feedbackService.analyzeInterviewAnswer(req);
+        InterviewAiDtos.AnswerAnalysisResultDto result = feedbackService.processAnswerAudio(meta, file);
         return ResponseEntity.ok(result);
     }
 }
