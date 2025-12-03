@@ -48,6 +48,7 @@ public class FeedbackService {
                 .title(req.title())
                 .feedbackType(req.feedbackType())
                 .totalScore(req.totalScore())
+                .transcript(req.transcript())
                 .feedbackText(req.feedbackText())
                 .sectionFeedback(req.sectionFeedback())
                 .introductionId(req.introductionId())
@@ -167,16 +168,29 @@ public class FeedbackService {
         );
 
         // 3. AI 피드백 서버 호출
-        InterviewAiDtos.AnswerAnalysisResultDto analysisResult = analyzeInterviewAnswer(dispatchForAi);
+        InterviewAiDtos.AnswerAnalysisResultDto rawAnalysisResult = analyzeInterviewAnswer(dispatchForAi);
 
-        log.info("AI 분석 완료. 점수: {}. DB 저장을 시작합니다.", analysisResult.score());
+        InterviewAiDtos.AnswerAnalysisResultDto finalResult = new InterviewAiDtos.AnswerAnalysisResultDto(
+                transcript, // ⬅️ STT 텍스트를 첫 번째 필드에 채움
+                rawAnalysisResult.score(),
+                rawAnalysisResult.timeMs(),
+                rawAnalysisResult.fluency(),
+                rawAnalysisResult.contentDepth(),
+                rawAnalysisResult.structure(),
+                rawAnalysisResult.fillerCount(),
+                rawAnalysisResult.improvements(),
+                rawAnalysisResult.strengths(),
+                rawAnalysisResult.risks()
+        );
+
+        log.info("AI 분석 완료. 점수: {}. DB 저장을 시작합니다.", finalResult.score());
 
         // 4. 피드백 결과 DB 저장
-        saveInterviewFeedback(meta, analysisResult);
+        saveInterviewFeedback(meta, finalResult);
 
         log.info("DB 저장 완료. 최종 처리를 마칩니다.");
 
-        return analysisResult;
+        return finalResult;
     }
 
     /**
@@ -302,26 +316,27 @@ public class FeedbackService {
      */
     private void saveInterviewFeedback(
             InterviewAiDtos.SttRequestMetaDto meta,
-            InterviewAiDtos.AnswerAnalysisResultDto analysisResult
+            InterviewAiDtos.AnswerAnalysisResultDto finalResult
     ) {
         // 1. 전체 피드백 텍스트 구성 (improvements + strengths + risks)
-        String combinedFeedbackText = formatFeedbackText(analysisResult);
+        String combinedFeedbackText = formatFeedbackText(finalResult);
 
         // 2. 항목별 피드백 (structure, contentDepth, fluency)를 JSON 또는 문자열로 구성
         // 여기서는 간단한 문자열 포맷으로 구성합니다. (실제로는 JSON 형태로 저장하는 경우가 많습니다.)
         String sectionFeedback = String.format(
                 "{\"fluency\": %d, \"contentDepth\": %d, \"structure\": %d, \"fillerCount\": %d}",
-                analysisResult.fluency(),
-                analysisResult.contentDepth(),
-                analysisResult.structure(),
-                analysisResult.fillerCount()
+                finalResult.fluency(),
+                finalResult.contentDepth(),
+                finalResult.structure(),
+                finalResult.fillerCount()
         );
 
         // 3. Feedback 엔티티 빌드
         Feedback feedback = Feedback.builder()
                 .title(meta.questionText()) // 질문을 제목으로 사용
                 .feedbackType(FeedbackType.INTERVIEW) // 면접 타입 지정
-                .totalScore(analysisResult.score().longValue()) // 점수를 Long으로 변환
+                .totalScore(finalResult.score().longValue()) // 점수를 Long으로 변환
+                .transcript(finalResult.transcript())
                 .feedbackText(combinedFeedbackText)
                 .sectionFeedback(sectionFeedback)
                 .introductionId(null) // 면접 피드백이므로 NULL
@@ -367,6 +382,7 @@ public class FeedbackService {
                 f.getTitle(),
                 f.getFeedbackType(),
                 f.getTotalScore(),
+                f.getTranscript(),
                 f.getFeedbackText(),
                 f.getSectionFeedback(),
                 f.getIntroductionId(),

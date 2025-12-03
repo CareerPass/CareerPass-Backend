@@ -25,6 +25,9 @@ public class Feedback {
     @Column(name = "total_score", nullable = false)
     private Long totalScore;
 
+    @Column(name = "transcript", columnDefinition = "TEXT", nullable = true)
+    private String transcript;
+
     @Lob
     @Column(name = "feedback_text", nullable = false)
     private String feedbackText;

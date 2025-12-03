@@ -39,6 +39,7 @@ public class InterviewAiDtos {
     ) {}
 
     public record AnswerAnalysisResultDto(
+            String transcript,
             Integer score,
             Long timeMs,
             Integer fluency,
