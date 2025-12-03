@@ -11,6 +11,7 @@ public class FeedbackDtos {
             @NotNull String title,
             @NotNull FeedbackType feedbackType,
             @NotNull Long totalScore,
+            String transcript,
             @NotBlank String feedbackText,
             @NotBlank String sectionFeedback,
             Long introductionId,   // INTRODUCTION일 때만 값
@@ -23,6 +24,7 @@ public class FeedbackDtos {
             String title,
             FeedbackType feedbackType,
             Long totalScore,
+            String transcript,
             String feedbackText,
             String sectionFeedback,
             Long introductionId,
