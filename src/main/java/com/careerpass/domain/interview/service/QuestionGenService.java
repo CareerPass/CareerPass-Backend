@@ -1,5 +1,6 @@
 package com.careerpass.domain.interview.service;
 
+import com.careerpass.domain.feedback.dto.IntroductionAiDtos;
 import com.careerpass.domain.interview.dto.GenerateQuestionsRequest;
 import com.careerpass.domain.interview.dto.GenerateQuestionsResponse;
 import com.careerpass.domain.interview.dto.QuestionItemDto;
@@ -31,6 +32,28 @@ public class QuestionGenService {
      * 4) GenerateQuestionsResponse 로 래핑
      */
     public Mono<GenerateQuestionsResponse> generate(GenerateQuestionsRequest req) {
+
+        String originalCoverLetter = req.coverLetter();
+
+        String cleanedCoverLetter = originalCoverLetter;
+
+        cleanedCoverLetter = cleanedCoverLetter
+                .replaceAll("[\r\n\t]+", " ");
+
+        cleanedCoverLetter = cleanedCoverLetter
+                .replaceAll("“", "\"").replaceAll("”", "\"")
+                .replaceAll("‘", "'").replaceAll("’", "'");
+
+        cleanedCoverLetter = cleanedCoverLetter
+                .replaceAll("\\u00A0", " ")
+                .replaceAll("\\u200B", " ");
+
+        cleanedCoverLetter = cleanedCoverLetter.replaceAll(" {2,}", " ").trim();
+
+        IntroductionAiDtos.IntroFeedbackRequest cleanReq = new IntroductionAiDtos.IntroFeedbackRequest(
+                req.userId(),
+                cleanedCoverLetter
+        );
 
         // 1) userId 로 전공/직무 매핑 (지금은 임시 하드코딩)
         MajorJobInfo info = resolveMajorAndJob(req.userId());
