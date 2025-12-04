@@ -37,7 +37,7 @@ public class FeedbackService {
 
     private final FeedbackRepository feedbackRepository;
 
-    // 🔹 파이썬 Resume AI 서버 WebClient
+    // 🔹 파이썬 Resume / Interview AI 서버 WebClient
     private final WebClient aiWebClient;
     private final ObjectMapper objectMapper;
 
@@ -141,56 +141,97 @@ public class FeedbackService {
             InterviewAiDtos.SttRequestMetaDto meta,
             MultipartFile audioFile
     ) {
-        log.info("면접 음성 처리 시작: 면접 ID={}, 질문 ID={}",
-                meta.interviewId(), meta.questionId());
-        // 1. STT 서버 호출 및 텍스트 변환
-        String transcript = callSttServer(meta, audioFile);
-
-        log.info("STT 텍스트 변환 완료. 길이: {}자. AI 분석을 시작합니다.",
-                transcript.length());
-
-        // 2. 최종 DTO 구성을 위한 데이터 준비
-        // AnswerId 대신 InterviewId를 사용하며, 이는 meta.interviewId()로 사용합니다.
-
-        InterviewAiDtos.InterviewMetaDto metaDto = new InterviewAiDtos.InterviewMetaDto(
+        log.info("[INTERVIEW_AI] 면접 음성 처리 시작: interviewId={}, userId={}, questionId={}, fileSize={}",
                 meta.interviewId(),
                 meta.userId(),
-                meta.jobApplied(),
-                meta.questionId()
+                meta.questionId(),
+                (audioFile != null ? audioFile.getSize() : -1L)
         );
 
-        InterviewAiDtos.AnswerDispatchDto dispatchForAi = new InterviewAiDtos.AnswerDispatchDto(
-                0L, // answerId는 여기서는 사용하지 않음
-                meta.questionText(),
-                transcript,
-                meta.resumeContent(),
-                metaDto
-        );
+        try {
+            if (audioFile == null || audioFile.isEmpty()) {
+                throw new ResponseStatusException(
+                        HttpStatus.BAD_REQUEST,
+                        "INTERVIEW_AI_ERROR: 업로드된 면접 음성 파일이 비어 있습니다."
+                );
+            }
 
-        // 3. AI 피드백 서버 호출
-        InterviewAiDtos.AnswerAnalysisResultDto rawAnalysisResult = analyzeInterviewAnswer(dispatchForAi);
+            // 1. STT 서버 호출 및 텍스트 변환
+            String transcript = callSttServer(meta, audioFile);
 
-        InterviewAiDtos.AnswerAnalysisResultDto finalResult = new InterviewAiDtos.AnswerAnalysisResultDto(
-                transcript, // ⬅️ STT 텍스트를 첫 번째 필드에 채움
-                rawAnalysisResult.score(),
-                rawAnalysisResult.timeMs(),
-                rawAnalysisResult.fluency(),
-                rawAnalysisResult.contentDepth(),
-                rawAnalysisResult.structure(),
-                rawAnalysisResult.fillerCount(),
-                rawAnalysisResult.improvements(),
-                rawAnalysisResult.strengths(),
-                rawAnalysisResult.risks()
-        );
+            if (transcript == null || transcript.isBlank()) {
+                throw new ResponseStatusException(
+                        HttpStatus.INTERNAL_SERVER_ERROR,
+                        "INTERVIEW_AI_ERROR: STT 결과가 비어 있습니다."
+                );
+            }
 
-        log.info("AI 분석 완료. 점수: {}. DB 저장을 시작합니다.", finalResult.score());
+            log.info("[INTERVIEW_AI] STT 텍스트 변환 완료. 길이: {}자. AI 분석을 시작합니다.",
+                    transcript.length());
 
-        // 4. 피드백 결과 DB 저장
-        saveInterviewFeedback(meta, finalResult);
+            // 2. 최종 DTO 구성을 위한 데이터 준비
+            InterviewAiDtos.InterviewMetaDto metaDto = new InterviewAiDtos.InterviewMetaDto(
+                    meta.interviewId(),
+                    meta.userId(),
+                    meta.jobApplied(),
+                    meta.questionId()
+            );
 
-        log.info("DB 저장 완료. 최종 처리를 마칩니다.");
+            InterviewAiDtos.AnswerDispatchDto dispatchForAi = new InterviewAiDtos.AnswerDispatchDto(
+                    0L, // answerId는 여기서는 사용하지 않음
+                    meta.questionText(),
+                    transcript,
+                    meta.resumeContent(),
+                    metaDto
+            );
 
-        return finalResult;
+            // 3. AI 피드백 서버 호출
+            InterviewAiDtos.AnswerAnalysisResultDto rawAnalysisResult = analyzeInterviewAnswer(dispatchForAi);
+
+            if (rawAnalysisResult == null) {
+                throw new ResponseStatusException(
+                        HttpStatus.INTERNAL_SERVER_ERROR,
+                        "INTERVIEW_AI_ERROR: 면접 AI 분석 결과가 null 입니다."
+                );
+            }
+
+            InterviewAiDtos.AnswerAnalysisResultDto finalResult = new InterviewAiDtos.AnswerAnalysisResultDto(
+                    transcript, // ⬅️ STT 텍스트를 첫 번째 필드에 채움
+                    rawAnalysisResult.score(),
+                    rawAnalysisResult.timeMs(),
+                    rawAnalysisResult.fluency(),
+                    rawAnalysisResult.contentDepth(),
+                    rawAnalysisResult.structure(),
+                    rawAnalysisResult.fillerCount(),
+                    rawAnalysisResult.improvements(),
+                    rawAnalysisResult.strengths(),
+                    rawAnalysisResult.risks()
+            );
+
+            log.info("[INTERVIEW_AI] AI 분석 완료. 점수: {}. DB 저장을 시작합니다.", finalResult.score());
+
+            // 4. 피드백 결과 DB 저장
+            saveInterviewFeedback(meta, finalResult);
+
+            log.info("[INTERVIEW_AI] DB 저장 완료. 최종 처리를 마칩니다.");
+
+            return finalResult;
+
+        } catch (ResponseStatusException e) {
+            // 이미 의미 있는 메시지를 가진 예외는 그대로 전달
+            log.error("[INTERVIEW_AI] ResponseStatusException 발생: status={}, reason={}",
+                    e.getStatusCode(), e.getReason(), e);
+            throw e;
+        } catch (Exception e) {
+            // 나머지는 공통 인터뷰 AI 에러로 래핑
+            log.error("[INTERVIEW_AI] 처리 중 예외 발생 - interviewId={}, userId={}, questionId={}",
+                    meta.interviewId(), meta.userId(), meta.questionId(), e);
+            throw new ResponseStatusException(
+                    HttpStatus.INTERNAL_SERVER_ERROR,
+                    "INTERVIEW_AI_ERROR: " + e.getMessage(),
+                    e
+            );
+        }
     }
 
     /**
@@ -201,6 +242,13 @@ public class FeedbackService {
             MultipartFile audioFile
     ) {
         try {
+            if (audioFile == null || audioFile.isEmpty()) {
+                throw new ResponseStatusException(
+                        HttpStatus.BAD_REQUEST,
+                        "STT_ERROR: 업로드된 파일이 비어 있습니다."
+                );
+            }
+
             MultipartBodyBuilder builder = new MultipartBodyBuilder();
 
             String metaJson = objectMapper.writeValueAsString(meta);
@@ -212,7 +260,12 @@ public class FeedbackService {
                     return audioFile.getOriginalFilename();
                 }
             };
-            builder.part("file", resource, MediaType.valueOf(audioFile.getContentType()));
+            // contentType이 null일 가능성도 방어
+            MediaType fileMediaType = MediaType.APPLICATION_OCTET_STREAM;
+            if (audioFile.getContentType() != null) {
+                fileMediaType = MediaType.valueOf(audioFile.getContentType());
+            }
+            builder.part("file", resource, fileMediaType);
 
             InterviewAiDtos.SttResultDto sttResult = aiWebClient.post()
                     .uri("/voice/analyze")
@@ -222,17 +275,43 @@ public class FeedbackService {
                     .bodyToMono(InterviewAiDtos.SttResultDto.class)
                     .block();
 
-            log.debug("STT 서버로부터 결과 수신 완료.");
+            if (sttResult == null || sttResult.answerText() == null) {
+                log.error("[STT] STT 서버에서 빈 결과를 반환했습니다. meta={}", meta);
+                throw new ResponseStatusException(
+                        HttpStatus.INTERNAL_SERVER_ERROR,
+                        "STT_ERROR: STT 서버가 빈 결과를 반환했습니다."
+                );
+            }
+
+            log.debug("[STT] STT 서버로부터 결과 수신 완료. 길이={}", sttResult.answerText().length());
 
             return sttResult.answerText();
 
         } catch (WebClientResponseException ex) {
-            log.error("Python STT 서버 오류 응답: 상태={}, 본문={}",
+            log.error("[STT] Python STT 서버 오류 응답: 상태={}, 본문={}",
                     ex.getStatusCode(), ex.getResponseBodyAsString(), ex);
-            throw new RuntimeException("Python STT 서버 호출 실패: " + ex.getResponseBodyAsString(), ex);
+            throw new ResponseStatusException(
+                    ex.getStatusCode(),
+                    "STT_ERROR: " + ex.getResponseBodyAsString(),
+                    ex
+            );
+        } catch (WebClientRequestException ex) {
+            log.error("[STT] Python STT 서버 연결 실패", ex);
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_GATEWAY,
+                    "STT_ERROR: STT 서버에 연결할 수 없습니다.",
+                    ex
+            );
+        } catch (ResponseStatusException e) {
+            // 위에서 직접 던진 STT_ERROR 유지
+            throw e;
         } catch (Exception ex) {
-            log.error("Python STT 서버 연결/실행 중 오류 발생", ex);
-            throw new RuntimeException("Python STT 서버 연결 중 오류 발생", ex);
+            log.error("[STT] Python STT 서버 연결/실행 중 예외 발생", ex);
+            throw new ResponseStatusException(
+                    HttpStatus.INTERNAL_SERVER_ERROR,
+                    "STT_ERROR: " + ex.getMessage(),
+                    ex
+            );
         }
     }
 
@@ -288,25 +367,51 @@ public class FeedbackService {
                 dispatch.meta()
         );
 
-        log.debug("AI 서버로 JSON 요청 전송: URI=/interview/analysis/interview/run");
+        log.debug("[INTERVIEW_AI] AI 서버로 JSON 요청 전송: URI=/interview/analysis/interview/run");
 
         try {
-            InterviewAiDtos.AnswerAnalysisResultDto result = aiWebClient.post() // 💡 지역 변수 'result' 사용
+            InterviewAiDtos.AnswerAnalysisResultDto result = aiWebClient.post()
                     .uri("/interview/analysis/interview/run")
                     .bodyValue(cleanDispatch)
                     .retrieve()
                     .bodyToMono(InterviewAiDtos.AnswerAnalysisResultDto.class)
                     .block();
 
-            log.debug("AI 분석 서버로부터 결과 수신 완료."); // 💡 성공 로그 추가
-            return result; // 💡 지역 변수 반환
+            if (result == null) {
+                log.error("[INTERVIEW_AI] Python Interview AI 서버가 null 결과를 반환했습니다. dispatch={}", cleanDispatch);
+                throw new ResponseStatusException(
+                        HttpStatus.INTERNAL_SERVER_ERROR,
+                        "AI_ERROR: 면접 AI 서버가 빈 결과를 반환했습니다."
+                );
+            }
+
+            log.debug("[INTERVIEW_AI] AI 분석 서버로부터 결과 수신 완료.");
+            return result;
+
         } catch (WebClientResponseException ex) {
-            log.error("Python AI 서버 오류 응답: 상태={}, 본문={}", // 💡 오류 로그 추가
+            log.error("[INTERVIEW_AI] Python Interview AI 서버 오류 응답: 상태={}, 본문={}",
                     ex.getStatusCode(), ex.getResponseBodyAsString(), ex);
-            throw new RuntimeException("Python Interview AI 서버 호출 실패: " + ex.getResponseBodyAsString(), ex);
+            throw new ResponseStatusException(
+                    ex.getStatusCode(),
+                    "AI_ERROR: " + ex.getResponseBodyAsString(),
+                    ex
+            );
+        } catch (WebClientRequestException ex) {
+            log.error("[INTERVIEW_AI] Python Interview AI 서버 연결 실패", ex);
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_GATEWAY,
+                    "AI_ERROR: 면접 AI 서버에 연결할 수 없습니다.",
+                    ex
+            );
+        } catch (ResponseStatusException e) {
+            throw e;
         } catch (Exception ex) {
-            log.error("Python AI 서버 연결/실행 중 오류 발생", ex); // 💡 오류 로그 추가
-            throw new RuntimeException("Python Interview AI 서버 연결 중 오류 발생", ex);
+            log.error("[INTERVIEW_AI] Python AI 서버 연결/실행 중 예외 발생", ex);
+            throw new ResponseStatusException(
+                    HttpStatus.INTERNAL_SERVER_ERROR,
+                    "AI_ERROR: " + ex.getMessage(),
+                    ex
+            );
         }
     }
 
@@ -322,7 +427,6 @@ public class FeedbackService {
         String combinedFeedbackText = formatFeedbackText(finalResult);
 
         // 2. 항목별 피드백 (structure, contentDepth, fluency)를 JSON 또는 문자열로 구성
-        // 여기서는 간단한 문자열 포맷으로 구성합니다. (실제로는 JSON 형태로 저장하는 경우가 많습니다.)
         String sectionFeedback = String.format(
                 "{\"fluency\": %d, \"contentDepth\": %d, \"structure\": %d, \"fillerCount\": %d}",
                 finalResult.fluency(),
@@ -343,7 +447,6 @@ public class FeedbackService {
                 .interviewId(meta.interviewId()) // Interview ID 사용
                 .build();
 
-        // 4. 저장
         feedbackRepository.save(feedback);
     }
 
@@ -372,9 +475,6 @@ public class FeedbackService {
 
         return sb.toString();
     }
-
-
-
 
     private Response toDto(Feedback f) {
         return new Response(
