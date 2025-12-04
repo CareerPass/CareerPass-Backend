@@ -170,8 +170,11 @@ public class FeedbackService {
                     transcript.length());
 
             // 2. 최종 DTO 구성을 위한 데이터 준비
+            // ⚠️ interviewId 가 null 이면 파이썬에는 0으로 보냄 (Pydantic 422 방지)
+            Long safeInterviewId = (meta.interviewId() != null) ? meta.interviewId() : 0L;
+
             InterviewAiDtos.InterviewMetaDto metaDto = new InterviewAiDtos.InterviewMetaDto(
-                    meta.interviewId(),
+                    safeInterviewId,
                     meta.userId(),
                     meta.jobApplied(),
                     meta.questionId()
@@ -436,6 +439,8 @@ public class FeedbackService {
         );
 
         // 3. Feedback 엔티티 빌드
+        Long safeInterviewId = (meta.interviewId() != null) ? meta.interviewId() : 0L;
+
         Feedback feedback = Feedback.builder()
                 .title(meta.questionText()) // 질문을 제목으로 사용
                 .feedbackType(FeedbackType.INTERVIEW) // 면접 타입 지정
@@ -444,7 +449,7 @@ public class FeedbackService {
                 .feedbackText(combinedFeedbackText)
                 .sectionFeedback(sectionFeedback)
                 .introductionId(null) // 면접 피드백이므로 NULL
-                .interviewId(meta.interviewId()) // Interview ID 사용
+                .interviewId(safeInterviewId) // Interview ID 사용
                 .build();
 
         feedbackRepository.save(feedback);
