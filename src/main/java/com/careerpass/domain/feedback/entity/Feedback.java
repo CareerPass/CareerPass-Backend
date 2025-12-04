@@ -29,7 +29,7 @@ public class Feedback {
     private String transcript;
 
     @Lob
-    @Column(name = "feedback_text", nullable = false)
+    @Column(name = "feedback_text", columnDefinition = "LONGTEXT", nullable = false)
     private String feedbackText;
 
     @Column(name = "section_feedback", columnDefinition = "TEXT", nullable = false)
