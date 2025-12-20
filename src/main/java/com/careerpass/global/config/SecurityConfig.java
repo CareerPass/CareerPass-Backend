@@ -7,15 +7,10 @@ import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.web.servlet.config.annotation.CorsRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
-import org.springframework.security.oauth2.core.oidc.user.OidcUser;
-
-import java.net.URLEncoder;
-import java.nio.charset.StandardCharsets;
-
 @Configuration
 public class SecurityConfig {
 
-    // 프론트 엔드 주소 (로컬 개발 기준: 3000)
+    // ✅ 배포/개발 환경에 맞게 바꾸기 (우선 로컬)
     private static final String FRONT_BASE_URL = "http://localhost:3000";
 
     @Bean
@@ -24,7 +19,7 @@ public class SecurityConfig {
                 // CORS
                 .cors(cors -> {})
 
-                // CSRF (API 위주라 비활성화)
+                // CSRF (세션/쿠키를 쓸 거라면 운영에서는 재검토 필요)
                 .csrf(csrf -> csrf.disable())
 
                 // 🔐 인가 설정
@@ -37,14 +32,15 @@ public class SecurityConfig {
                                 "/v3/api-docs/**",
                                 "/swagger-ui/**",
                                 "/swagger-ui.html",
-                                // 프론트에서 호출하는 모든 API 임시 오픈
-                                "/api/**",
-                                // /me 엔드포인트
-                                "/me",
                                 // OAuth 관련 엔드포인트
                                 "/oauth2/**",
                                 "/login/oauth2/**"
                         ).permitAll()
+
+                        // ✅ 로그인 된 사용자만 접근 가능
+                        .requestMatchers("/me").authenticated()
+                        .requestMatchers("/api/**").authenticated()
+
                         .anyRequest().authenticated()
                 )
 
@@ -53,17 +49,10 @@ public class SecurityConfig {
                 .httpBasic(basic -> basic.disable())
 
                 // ✅ OAuth2 로그인 성공 시 프론트로 리다이렉트
+                // ⚠️ 개인정보(email 등)를 URL 쿼리로 넘기지 않음 (로그/히스토리 유출 위험)
                 .oauth2Login(oauth -> oauth
                         .successHandler((request, response, authentication) -> {
-                            OidcUser oidcUser = (OidcUser) authentication.getPrincipal();
-                            String email = oidcUser.getEmail();
-
-                            // email URL 인코딩
-                            String encodedEmail = URLEncoder.encode(email, StandardCharsets.UTF_8);
-
-                            // 프론트로 리다이렉트 (쿼리에 email 넘겨줌)
-                            String redirectUrl = FRONT_BASE_URL + "/?email=" + encodedEmail;
-                            response.sendRedirect(redirectUrl);
+                            response.sendRedirect(FRONT_BASE_URL + "/");
                         })
                 );
 
