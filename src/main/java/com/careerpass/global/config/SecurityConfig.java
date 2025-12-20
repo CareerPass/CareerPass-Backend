@@ -34,7 +34,9 @@ public class SecurityConfig {
                                 "/swagger-ui.html",
                                 // OAuth 관련 엔드포인트
                                 "/oauth2/**",
-                                "/login/oauth2/**"
+                                "/login/oauth2/**",
+                                // 로그아웃 성공 엔드포인트
+                                "/logout-success"
                         ).permitAll()
 
                         // ✅ 로그인 된 사용자만 접근 가능
@@ -54,6 +56,15 @@ public class SecurityConfig {
                         .successHandler((request, response, authentication) -> {
                             response.sendRedirect(FRONT_BASE_URL + "/");
                         })
+                )
+
+                .logout(logout -> logout
+                    .logoutUrl("/logout")                 // 기본: POST /logout
+                    .logoutSuccessUrl("/logout-success")  // 성공 시 이동
+                    .invalidateHttpSession(true)          // 세션 무효화
+                    .deleteCookies("JSESSIONID")          // 쿠키 제거
+                    .clearAuthentication(true)
+                        .permitAll()
                 );
 
         return http.build();
