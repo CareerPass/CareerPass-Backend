@@ -3,6 +3,7 @@ package com.careerpass.global.config;
 import com.careerpass.global.auth.jwt.JwtAuthenticationFilter;
 import com.careerpass.global.auth.jwt.JwtTokenProvider;
 import jakarta.servlet.http.Cookie;
+import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.Customizer;
@@ -64,7 +65,10 @@ public class SecurityConfig {
                                 "/oauth2/**",
                                 "/login/oauth2/**",
                                 // 로그아웃 성공 엔드포인트
-                                "/logout-success"
+                                "/logout-success",
+                                // ✅ actuator 임시 오픈(원인 추적용)
+                                "/actuator/health",
+                                "/actuator/mappings"
                         ).permitAll()
 
                         // ✅ 로그인 된 사용자만 접근 가능
@@ -100,6 +104,15 @@ public class SecurityConfig {
 
                             response.addCookie(cookie);
                             response.sendRedirect(FRONT_BASE_URL + "/");
+                        })
+                )
+
+                // ✅ 인증 실패 시: 401 응답
+                .exceptionHandling(ex -> ex
+                        .authenticationEntryPoint((request, response, authException) -> {
+                            response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+                            response.setContentType("application/json;charset=UTF-8");
+                            response.getWriter().write("{\"message\":\"Unauthorized\"}");
                         })
                 )
 
