@@ -24,7 +24,7 @@ import java.util.List;
 public class SecurityConfig {
 
     // ✅ 배포/개발 환경에 맞게 바꾸기 (우선 로컬)
-    private static final String FRONT_BASE_URL = "http://localhost:3000";
+    private static final String FRONT_BASE_URL = "https://careerpass.duckdns.org";
 
     // ✅JWT 토큰이 담긴 쿠키 이름
     private static final String ACCESS_TOKEN_COOKIE = "access_token";
@@ -98,7 +98,7 @@ public class SecurityConfig {
 
                             Cookie cookie = new Cookie(ACCESS_TOKEN_COOKIE, jwt);
                             cookie.setHttpOnly(true);
-                            cookie.setSecure(false); // ⚠️ HTTPS 배포면 true로 변경해야 함
+                            cookie.setSecure(true);
                             cookie.setPath("/");
                             cookie.setMaxAge((int) (ACCESS_TOKEN_TTL_MS / 1000));
 
