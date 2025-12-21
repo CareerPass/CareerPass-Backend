@@ -1,46 +1,48 @@
 package com.careerpass.global.auth.controller;
 
+import com.careerpass.domain.user.dto.LearningProfileResponse;
+import com.careerpass.domain.user.service.UserService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RestController;
-
-import java.util.HashMap;
-import java.util.Map;
+import org.springframework.web.server.ResponseStatusException;
 
 @RestController
 @RequiredArgsConstructor
 public class MeController {
 
+    private final UserService userService;
+
+    /**
+     * 헬스 체크 (nginx / 배포 확인용)
+     */
     @GetMapping("/health")
     public String health() {
         return "UP";
     }
 
     /**
-     * 🎭 시연용 /me
+     * ✅ 현재 로그인한 사용자 정보 조회
      *
-     *  - 실제 로그인 여부, DB 상태 전혀 안 봄
-     *  - 항상 같은 더미 유저 정보를 200으로 반환
-     *  - 프론트에서는 "로그인된 유저"라고 생각하고 동작하게 됨
+     * 흐름:
+     * 1️⃣ JwtAuthenticationFilter → Authentication.principal = email
+     * 2️⃣ email 기준으로 DB 조회
+     * 3️⃣ 없으면 자동 생성(loginOrCreate)
+     * 4️⃣ LearningProfileResponse 반환
      */
     @GetMapping("/me")
-    public Map<String, Object> me() {
-        Map<String, Object> mock = new HashMap<>();
+    public LearningProfileResponse me(Authentication authentication) {
 
-        // 🔑 프론트가 쓸만한 기본 필드들 – 키 이름은 자유롭게 더/빼도 됨
-        mock.put("id", 1L);
-        mock.put("email", "demo@careerpass.com");
-        mock.put("major", "컴퓨터공학과");
-        mock.put("job", "데이터베이스 개발자");
+        if (authentication == null || authentication.getPrincipal() == null) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Unauthorized");
+        }
 
-        // 학습 프로필 쪽에서 쓸 수 있는 통계값들 (대충 시연용)
-        mock.put("totalInterviewCount", 0);
-        mock.put("totalIntroductionCount", 0);
+        // JWT subject = email
+        String email = authentication.getPrincipal().toString();
 
-        // 필요하면 여기다 다른 필드도 추가 가능
-        // mock.put("name", "데모 유저");
-        // mock.put("grade", 3);
-
-        return mock; // -> 항상 200 OK + JSON
+        // 🔥 핵심: DB 기준으로 로그인 or 생성
+        return userService.loginOrCreateByEmail(email);
     }
 }

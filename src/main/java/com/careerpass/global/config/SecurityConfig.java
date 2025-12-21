@@ -1,31 +1,60 @@
 package com.careerpass.global.config;
 
+import com.careerpass.domain.user.service.UserService;
+import com.careerpass.global.auth.jwt.JwtAuthenticationFilter;
+import com.careerpass.global.auth.jwt.JwtTokenProvider;
+import jakarta.servlet.http.Cookie;
+import jakarta.servlet.http.HttpServletResponse;
+import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
+import org.springframework.security.config.http.SessionCreationPolicy;
+import org.springframework.security.oauth2.core.oidc.user.OidcUser;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.web.cors.CorsConfiguration;
+import org.springframework.web.cors.CorsConfigurationSource;
+import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 import org.springframework.web.servlet.config.annotation.CorsRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
-import org.springframework.security.oauth2.core.oidc.user.OidcUser;
-
-import java.net.URLEncoder;
-import java.nio.charset.StandardCharsets;
+import java.util.List;
 
 @Configuration
+@RequiredArgsConstructor
 public class SecurityConfig {
 
-    // 프론트 엔드 주소 (로컬 개발 기준: 3000)
-    private static final String FRONT_BASE_URL = "http://localhost:3000";
+    // ✅ 배포/개발 환경에 맞게 바꾸기 (우선 로컬)
+    private static final String FRONT_BASE_URL = "https://careerpass.duckdns.org";
+
+    // ✅JWT 토큰이 담긴 쿠키 이름
+    private static final String ACCESS_TOKEN_COOKIE = "access_token";
+
+    // ✅ 액세스 토큰 만료시간 (원하면 조정)
+    private static final long ACCESS_TOKEN_TTL_MS = 1000L * 60 * 60; // 1시간
+
+    private final UserService userService;
 
     @Bean
-    public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
-        http
-                // CORS
-                .cors(cors -> {})
+    public JwtTokenProvider jwtTokenProvider() {
+        String secret = System.getenv("JWT_SECRET");
+        if (secret == null || secret.length() < 32) {
+            // 🔒 배포 기준: 시크릿 없으면 서버 뜨면 안 됨 (사고 방지)
+            throw new IllegalStateException("JWT_SECRET is missing or too short (min 32 chars).");
+        }
+        return new JwtTokenProvider(secret, ACCESS_TOKEN_TTL_MS);
+    }
 
-                // CSRF (API 위주라 비활성화)
+    @Bean
+    public SecurityFilterChain filterChain(HttpSecurity http, JwtTokenProvider jwtTokenProvider) throws Exception {
+        http
+                .cors(Customizer.withDefaults())
                 .csrf(csrf -> csrf.disable())
+
+                // ✅ 세션 사용 안 함 (토큰 방식)
+                .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED))
 
                 // 🔐 인가 설정
                 .authorizeHttpRequests(auth -> auth
@@ -37,14 +66,20 @@ public class SecurityConfig {
                                 "/v3/api-docs/**",
                                 "/swagger-ui/**",
                                 "/swagger-ui.html",
-                                // 프론트에서 호출하는 모든 API 임시 오픈
-                                "/api/**",
-                                // /me 엔드포인트
-                                "/me",
                                 // OAuth 관련 엔드포인트
                                 "/oauth2/**",
-                                "/login/oauth2/**"
+                                "/login/oauth2/**",
+                                // 로그아웃 성공 엔드포인트
+                                "/logout-success",
+                                // ✅ actuator 임시 오픈(원인 추적용)
+                                "/actuator/health",
+                                "/actuator/mappings"
                         ).permitAll()
+
+                        // ✅ 로그인 된 사용자만 접근 가능
+                        .requestMatchers("/me").authenticated()
+                        .requestMatchers("/api/**").authenticated()
+
                         .anyRequest().authenticated()
                 )
 
@@ -52,39 +87,72 @@ public class SecurityConfig {
                 .formLogin(form -> form.disable())
                 .httpBasic(basic -> basic.disable())
 
-                // ✅ OAuth2 로그인 성공 시 프론트로 리다이렉트
+                // ✅ JWT 인증 필터 등록 (쿠키에서 access_token 읽어서 인증 세팅)
+                .addFilterBefore(
+                        new JwtAuthenticationFilter(jwtTokenProvider, ACCESS_TOKEN_COOKIE),
+                        UsernamePasswordAuthenticationFilter.class
+                )
+
+                // ✅ 구글 OAuth2 로그인 성공 시: JWT 발급 → HttpOnly 쿠키로 내려줌 → 프론트로 리다이렉트
                 .oauth2Login(oauth -> oauth
                         .successHandler((request, response, authentication) -> {
                             OidcUser oidcUser = (OidcUser) authentication.getPrincipal();
                             String email = oidcUser.getEmail();
+                            String nickname = oidcUser.getGivenName(); // 없을 수도 있음.
+                            String googleSub = oidcUser.getSubject(); // 구글 유저 고유 식별자
 
-                            // email URL 인코딩
-                            String encodedEmail = URLEncoder.encode(email, StandardCharsets.UTF_8);
+                            // ✅ 사용자 정보로 회원가입 또는 로그인 처리
+                            userService.upsertGoogleUser(email, nickname, googleSub);
 
-                            // 프론트로 리다이렉트 (쿼리에 email 넘겨줌)
-                            String redirectUrl = FRONT_BASE_URL + "/?email=" + encodedEmail;
-                            response.sendRedirect(redirectUrl);
+                            String jwt = jwtTokenProvider.createAccessToken(email);
+
+                            Cookie cookie = new Cookie(ACCESS_TOKEN_COOKIE, jwt);
+                            cookie.setHttpOnly(true);
+                            cookie.setSecure(true);
+                            cookie.setPath("/");
+                            cookie.setMaxAge((int) (ACCESS_TOKEN_TTL_MS / 1000));
+
+                            response.addCookie(cookie);
+                            response.sendRedirect(FRONT_BASE_URL + "/");
                         })
+                        .failureHandler((request, response, exception) -> {
+                            // ✅ 실패 시 /login?error 같은 스프링 기본 경로로 보내지 말고,
+                            // 우리가 통제 가능한 곳으로 보냄
+                            response.sendRedirect(FRONT_BASE_URL + "/?login=fail");
+                        })
+                )
+
+                // ✅ 인증 실패 시: 401 응답
+                .exceptionHandling(ex -> ex
+                        .authenticationEntryPoint((request, response, authException) -> {
+                            response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+                            response.setContentType("application/json;charset=UTF-8");
+                            response.getWriter().write("{\"message\":\"Unauthorized\"}");
+                        })
+                )
+
+                // ✅ JWT 로그아웃: 쿠키 삭제로 처리
+                .logout(logout -> logout
+                        .logoutUrl("/logout") // 기본 POST /logout
+                        .logoutSuccessUrl("/logout-success")
+                        .deleteCookies(ACCESS_TOKEN_COOKIE)
+                        .permitAll()
                 );
 
         return http.build();
     }
 
-    // 개발용 CORS (프론트 → API 호출 허용)
+    // ✅ Security에서 CORS 적용되도록 CorsConfigurationSource로 제공
     @Bean
-    public WebMvcConfigurer corsConfigurer() {
-        return new WebMvcConfigurer() {
-            @Override
-            public void addCorsMappings(CorsRegistry registry) {
-                registry.addMapping("/**")
-                        .allowedOrigins(
-                                "http://localhost:3000" // 프론트 dev 주소
-                        )
-                        .allowedMethods("GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS")
-                        .allowedHeaders("*")
-                        .allowCredentials(true)
-                        .maxAge(3600);
-            }
-        };
+    public CorsConfigurationSource corsConfigurationSource() {
+        CorsConfiguration config = new CorsConfiguration();
+        config.setAllowedOrigins(List.of("http://localhost:3000")); // 프론트 배포 이후 수정 해야함.
+        config.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"));
+        config.setAllowedHeaders(List.of("*"));
+        config.setAllowCredentials(true); // ✅ 쿠키 포함 필수
+
+        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+        source.registerCorsConfiguration("/**", config);
+        return source;
     }
 }
