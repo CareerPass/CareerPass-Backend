@@ -178,6 +178,44 @@ public class UserService {
     }
 
     /**
+     * ✅ OAuth2 로그인 성공 시점 Upsert
+     * - googleSub(= oidcUser.getSubject())를 socialNumber로 저장해서 "같은 구글 계정"을 확실히 식별
+     * - 없으면 생성, 있으면 email/nickname 최신값 반영(정책에 따라 조절 가능)
+     */
+    public User upsertGoogleUser(String email, String name, String googleSub) {
+        if (email == null || email.isBlank()) {
+            throw new IllegalArgumentException("email is required");
+        }
+        if (googleSub == null || googleSub.isBlank()) {
+            throw new IllegalArgumentException("googleSub(subject) is required");
+        }
+
+        return userRepository.findBySocialTypeAndSocialNumber(SocialType.GOOGLE, googleSub)
+                .map(user -> {
+                    // email은 구글 계정 설정에 따라 바뀔 수 있으니 최신값으로 맞춤(원하면 제거 가능)
+                    user.setEmail(email);
+
+                    // nickname은 사용자가 수정할 수 있으니까,
+                    // profileCompleted=false(미완)일 때만 구글 이름으로 보정하는 걸 추천
+                    if (!user.isProfileCompleted() && name != null && !name.isBlank()) {
+                        user.setNickname(name);
+                    }
+                    return user;
+                })
+                .orElseGet(() -> userRepository.save(
+                        User.builder()
+                                .email(email)
+                                .nickname((name == null || name.isBlank()) ? email.split("@")[0] : name)
+                                .major(null)
+                                .targetJob(null)
+                                .profileCompleted(false)
+                                .socialType(SocialType.GOOGLE)
+                                .socialNumber(googleSub) // ✅ 핵심
+                                .build()
+                ));
+    }
+
+    /**
      * [💡 엔티티 → LearningProfileResponse 변환 메서드]
      * - 기본정보 + 학습프로필 완료 여부
      * - 인터뷰/자소서 리스트를 한 번에 세팅

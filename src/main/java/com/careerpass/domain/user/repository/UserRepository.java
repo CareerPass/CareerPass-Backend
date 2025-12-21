@@ -1,5 +1,6 @@
 package com.careerpass.domain.user.repository;
 
+import com.careerpass.domain.user.entity.SocialType;
 import com.careerpass.domain.user.entity.User;
 import org.springframework.data.jpa.repository.JpaRepository;
 
@@ -11,6 +12,9 @@ import java.util.Optional;
  * - 엔티티는 name, email, major, targetJob 4개 필드 기준
  */
 public interface UserRepository extends JpaRepository<User, Long> {
+
+    // 🔹 소셜 타입 + 소셜 번호로 단건 조회 (OAuth2 로그인/회원 생성 시용)
+    Optional<User> findBySocialTypeAndSocialNumber(SocialType socialType, String socialNumber);
 
     // 🔹 이메일 존재 여부 (회원 생성 시 중복 체크용)
     boolean existsByEmail(String email);

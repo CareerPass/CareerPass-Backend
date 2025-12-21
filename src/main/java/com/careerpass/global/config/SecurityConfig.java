@@ -1,9 +1,11 @@
 package com.careerpass.global.config;
 
+import com.careerpass.domain.user.service.UserService;
 import com.careerpass.global.auth.jwt.JwtAuthenticationFilter;
 import com.careerpass.global.auth.jwt.JwtTokenProvider;
 import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletResponse;
+import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.Customizer;
@@ -21,6 +23,7 @@ import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 import java.util.List;
 
 @Configuration
+@RequiredArgsConstructor
 public class SecurityConfig {
 
     // ✅ 배포/개발 환경에 맞게 바꾸기 (우선 로컬)
@@ -31,6 +34,8 @@ public class SecurityConfig {
 
     // ✅ 액세스 토큰 만료시간 (원하면 조정)
     private static final long ACCESS_TOKEN_TTL_MS = 1000L * 60 * 60; // 1시간
+
+    private final UserService userService;
 
     @Bean
     public JwtTokenProvider jwtTokenProvider() {
@@ -49,7 +54,7 @@ public class SecurityConfig {
                 .csrf(csrf -> csrf.disable())
 
                 // ✅ 세션 사용 안 함 (토큰 방식)
-                .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED))
 
                 // 🔐 인가 설정
                 .authorizeHttpRequests(auth -> auth
@@ -93,6 +98,11 @@ public class SecurityConfig {
                         .successHandler((request, response, authentication) -> {
                             OidcUser oidcUser = (OidcUser) authentication.getPrincipal();
                             String email = oidcUser.getEmail();
+                            String nickname = oidcUser.getGivenName(); // 없을 수도 있음.
+                            String googleSub = oidcUser.getSubject(); // 구글 유저 고유 식별자
+
+                            // ✅ 사용자 정보로 회원가입 또는 로그인 처리
+                            userService.upsertGoogleUser(email, nickname, googleSub);
 
                             String jwt = jwtTokenProvider.createAccessToken(email);
 
@@ -104,6 +114,11 @@ public class SecurityConfig {
 
                             response.addCookie(cookie);
                             response.sendRedirect(FRONT_BASE_URL + "/");
+                        })
+                        .failureHandler((request, response, exception) -> {
+                            // ✅ 실패 시 /login?error 같은 스프링 기본 경로로 보내지 말고,
+                            // 우리가 통제 가능한 곳으로 보냄
+                            response.sendRedirect(FRONT_BASE_URL + "/?login=fail");
                         })
                 )
 
