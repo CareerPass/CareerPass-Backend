@@ -133,6 +133,29 @@ public class UserService {
     }
 
     /**
+     * [4️⃣-1 내 프로필 수정 (JWT 기반)]
+     * - JWT principal(email)로 사용자 조회 후
+     * - nickname/major/targetJob 수정
+     * - profileCompleted는 User.updateProfile() 기준(닉네임/전공/직무 모두 있어야 true)
+     */
+    public LearningProfileResponse updateMyProfileByEmail(String email, UpdateProfileRequest req) {
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new IllegalArgumentException("User not found by email: " + email));
+
+        // 기존 값 유지 + 요청 값만 덮어쓰기
+        String nextNickname = (req.nickname() != null) ? req.nickname() : user.getNickname();
+        String nextMajor = (req.major() != null) ? req.major() : user.getMajor();
+        String nextTargetJob = (req.targetJob() != null) ? req.targetJob() : user.getTargetJob();
+
+        // 엔티티에 있는 로직으로 업데이트 + profileCompleted 재계산까지 한 번에
+        user.updateProfile(nextNickname, nextMajor, nextTargetJob);
+
+         userRepository.save(user);
+
+        return toLearningProfileResponse(user);
+    }
+
+    /**
      * [5️⃣ 학습프로필 조회]
      * - 기본정보 + 학습프로필 완료 여부
      * - 면접/자소서 학습 이력 전체 요약 리스트 포함
