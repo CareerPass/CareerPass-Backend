@@ -17,7 +17,6 @@ public class InterviewAiDtos {
     // 💡 1-1. STT 요청 시 파일과 함께 받을 메타데이터 DTO 추가
     public record SttRequestMetaDto(
             Long interviewId,      // InterviewMetaDto의 id와 동일
-            Long userId,
             Long questionId,
             String questionText,   // 질문 텍스트
             String resumeContent,  // 이력서/자기소개서 내용

@@ -1,6 +1,5 @@
 package com.careerpass.global.error;
 
-import com.careerpass.domain.introduction.exception.IntroductionNotFoundException;
 import com.careerpass.global.error.ErrorResponse.FieldError;
 import jakarta.validation.ConstraintViolationException;
 import org.springframework.http.HttpStatus;
@@ -58,14 +57,6 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ErrorResponse> handleMethodNotAllowed(HttpRequestMethodNotSupportedException e) {
         return ResponseEntity.status(ErrorCode.METHOD_NOT_ALLOWED.getStatus())
                 .body(ErrorResponse.of(ErrorCode.METHOD_NOT_ALLOWED));
-    }
-
-    // 도메인: introduction
-    @ExceptionHandler(IntroductionNotFoundException.class)
-    public ResponseEntity<ErrorResponse> handleIntroNotFound(IntroductionNotFoundException e) {
-        return ResponseEntity
-                .status(ErrorCode.INTRODUCTION_NOT_FOUND.getStatus())
-                .body(ErrorResponse.of(ErrorCode.INTRODUCTION_NOT_FOUND, e.getMessage()));
     }
 
     // 도메인: feedback
