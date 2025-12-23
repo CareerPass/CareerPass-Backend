@@ -16,13 +16,16 @@ public class Feedback {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    @Column(name = "user_id", nullable = false)
+    private Long userId;
+
     @Column(name = "title", nullable = false)
     private String title;
 
     @Column(name = "feedback_type", nullable = false)
     private FeedbackType feedbackType;
 
-    @Column(name = "total_score", nullable = false)
+    @Column(name = "total_score", nullable = true)
     private Long totalScore;
 
     @Column(name = "transcript", columnDefinition = "TEXT", nullable = true)
@@ -41,20 +44,25 @@ public class Feedback {
     @Column(name = "interview_id", nullable = true)
     private Long interviewId;
 
+    @Column(name = "question_id", nullable = true)
+    private Long questionId;
+
+    @Column(name = "audio_url", nullable = true)
+    private String audioUrl;
+
+    @Column(name = "duration_ms", nullable = true)
+    private Long durationMs;
+
+    @Column(name = "created_at", nullable = false)
+    private java.time.LocalDateTime createdAt;
 
     @PrePersist
-    @PreUpdate
     public void validateAssociation() {
-        if(feedbackType == FeedbackType.INTRODUCTION) {
-            if(introductionId == null || interviewId != null) {
-                throw new IllegalStateException("자소서 id가 필요하고, 면접 id는 NULL이어야 한다.");
-            }
-        }else if(feedbackType == FeedbackType.INTERVIEW) {
-            if(interviewId == null || introductionId != null) {
-                throw new IllegalStateException("면접 id가 필요하고, 자소서 id는 NULL이어야 한다.");
-            }
-        }else {
-            throw new IllegalStateException("feedbackType이 INTRODUCTION 또는 INTERVIEW이어야 한다.");
+        if (feedbackType == null) {
+            throw new IllegalStateException("feedbackType이 null일 수 없습니다.");
+        }
+        if (createdAt == null) {
+            createdAt = java.time.LocalDateTime.now();
         }
     }
 }

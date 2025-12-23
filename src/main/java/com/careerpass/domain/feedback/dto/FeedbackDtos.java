@@ -8,6 +8,7 @@ public class FeedbackDtos {
 
     // 생성 요청
     public record CreateRequest(
+            @NotNull Long userId,
             @NotNull String title,
             @NotNull FeedbackType feedbackType,
             @NotNull Long totalScore,
@@ -15,12 +16,16 @@ public class FeedbackDtos {
             @NotBlank String feedbackText,
             @NotBlank String sectionFeedback,
             Long introductionId,   // INTRODUCTION일 때만 값
-            Long interviewId       // INTERVIEW일 때만 값
+            Long interviewId,      // INTERVIEW일 때만 값
+            Long questionId,
+            String audioUrl,
+            Long durationMs
     ) {}
 
     // 응답
     public record Response(
             Long id,
+            Long userId,
             String title,
             FeedbackType feedbackType,
             Long totalScore,
@@ -28,6 +33,19 @@ public class FeedbackDtos {
             String feedbackText,
             String sectionFeedback,
             Long introductionId,
-            Long interviewId
+            Long interviewId,
+            Long questionId,
+            String audioUrl,
+            Long durationMs,
+            java.time.LocalDateTime createdAt
+    ) {}
+
+    // 목록 요약 응답
+    public record SummaryResponse(
+            Long id,
+            String title,
+            FeedbackType feedbackType,
+            Long totalScore,
+            java.time.LocalDateTime createdAt
     ) {}
 }

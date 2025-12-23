@@ -16,4 +16,7 @@ public interface FeedbackRepository extends JpaRepository<Feedback, Long> {
 
     // 피드백 타입으로 검색 (INTRODUCTION / INTERVIEW)
     List<Feedback> findByFeedbackTypeOrderByIdDesc(FeedbackType feedbackType);
+
+    // 사용자 + 타입 기준 최신순 조회
+    List<Feedback> findByUserIdAndFeedbackTypeOrderByCreatedAtDesc(Long userId, FeedbackType feedbackType);
 }

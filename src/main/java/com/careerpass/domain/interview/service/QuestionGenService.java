@@ -50,11 +50,6 @@ public class QuestionGenService {
 
         cleanedCoverLetter = cleanedCoverLetter.replaceAll(" {2,}", " ").trim();
 
-        IntroductionAiDtos.IntroFeedbackRequest cleanReq = new IntroductionAiDtos.IntroFeedbackRequest(
-                req.userId(),
-                cleanedCoverLetter
-        );
-
         // 1) userId 로 전공/직무 매핑 (지금은 임시 하드코딩)
         MajorJobInfo info = resolveMajorAndJob(req.userId());
 
