@@ -1,7 +1,7 @@
 package com.careerpass.domain.user.service;
 
-import com.careerpass.domain.introduction.repository.IntroductionLearningHistoryRepository;
-import com.careerpass.domain.interview.repository.InterviewLearningRecordRepository;
+import com.careerpass.domain.feedback.entity.FeedbackType;
+import com.careerpass.domain.feedback.repository.FeedbackRepository;
 import com.careerpass.domain.user.dto.LearningProfileResponse;
 import com.careerpass.domain.user.dto.UpdateProfileRequest;
 import com.careerpass.domain.user.entity.SocialType;
@@ -12,7 +12,6 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.UUID;
 
@@ -22,12 +21,7 @@ import java.util.UUID;
 public class UserService {
 
     private final UserRepository userRepository;
-    private final InterviewLearningRecordRepository interviewLearningRecordRepository;
-    private final IntroductionLearningHistoryRepository introductionLearningHistoryRepository;
-
-    // 날짜 표시 형식: "2024.12.18"
-    private static final DateTimeFormatter DATE_FORMATTER =
-            DateTimeFormatter.ofPattern("yyyy.MM.dd");
+    private final FeedbackRepository feedbackRepository;
 
     /**
      * [프로필 수정]
@@ -180,11 +174,10 @@ public class UserService {
                 user.getMajor() != null && !user.getMajor().isBlank() &&
                         user.getTargetJob() != null && !user.getTargetJob().isBlank();
 
-        List<LearningProfileResponse.RecentInterviewSummary> interviewSummaries =
-                findInterviewSummaries(user.getId());
-
-        List<LearningProfileResponse.RecentIntroductionSummary> introductionSummaries =
-                findIntroductionSummaries(user.getId());
+        List<LearningProfileResponse.FeedbackSummary> introductionSummaries =
+                findFeedbackSummaries(user.getId(), FeedbackType.INTRODUCTION);
+        List<LearningProfileResponse.FeedbackSummary> interviewSummaries =
+                findFeedbackSummaries(user.getId(), FeedbackType.INTERVIEW);
 
         return LearningProfileResponse.builder()
                 .id(user.getId())
@@ -193,59 +186,20 @@ public class UserService {
                 .major(user.getMajor())
                 .targetJob(user.getTargetJob())
                 .profileCompleted(profileCompleted)
-                .recentInterviews(interviewSummaries)
-                .recentIntroductions(introductionSummaries)
+                .introductionFeedbacks(introductionSummaries)
+                .interviewFeedbacks(interviewSummaries)
                 .build();
     }
 
-    /**
-     * 해당 유저의 면접 기록 전체를 요약 리스트로 변환
-     * - InterviewLearningRecordRepository.findByUserIdOrderByLearnedAtDesc 사용
-     */
-    private List<LearningProfileResponse.RecentInterviewSummary> findInterviewSummaries(Long userId) {
-        return interviewLearningRecordRepository
-                .findByUserIdOrderByLearnedAtDesc(userId)
+    private List<LearningProfileResponse.FeedbackSummary> findFeedbackSummaries(Long userId, FeedbackType type) {
+        return feedbackRepository.findByUserIdAndFeedbackTypeOrderByCreatedAtDesc(userId, type)
                 .stream()
-                .map(record -> {
-                    Long interviewId = record.getId();
-
-                    String date = null;
-                    if (record.getLearnedAt() != null) {
-                        date = record.getLearnedAt().format(DATE_FORMATTER);
-                    }
-
-                    return LearningProfileResponse.RecentInterviewSummary.builder()
-                            .interviewId(interviewId)
-                            .title(null)
-                            .score(null)
-                            .date(date)
-                            .build();
-                })
-                .toList();
-    }
-
-    /**
-     * 해당 유저의 자기소개서 기록 전체를 요약 리스트로 변환
-     * - IntroductionLearningHistoryRepository.findByUserIdOrderByLearnedAtDesc 사용
-     */
-    private List<LearningProfileResponse.RecentIntroductionSummary> findIntroductionSummaries(Long userId) {
-        return introductionLearningHistoryRepository
-                .findByUserIdOrderByLearnedAtDesc(userId)
-                .stream()
-                .map(history -> {
-                    Long introductionId = history.getIntroduction().getId();
-
-                    String date = null;
-                    if (history.getLearnedAt() != null) {
-                        date = history.getLearnedAt().format(DATE_FORMATTER);
-                    }
-
-                    return LearningProfileResponse.RecentIntroductionSummary.builder()
-                            .introductionId(introductionId)
-                            .title(null)
-                            .date(date)
-                            .build();
-                })
+                .map(f -> LearningProfileResponse.FeedbackSummary.builder()
+                        .id(f.getId())
+                        .title(f.getTitle())
+                        .totalScore(f.getTotalScore())
+                        .createdAt(f.getCreatedAt())
+                        .build())
                 .toList();
     }
 }
