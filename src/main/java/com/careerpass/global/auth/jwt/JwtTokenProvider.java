@@ -2,20 +2,30 @@ package com.careerpass.global.auth.jwt;
 
 import io.jsonwebtoken.*;
 import io.jsonwebtoken.security.Keys;
+import jakarta.annotation.PostConstruct;
+import lombok.RequiredArgsConstructor;
 
 import javax.crypto.SecretKey;
 import java.nio.charset.StandardCharsets;
 import java.util.Date;
 
+@RequiredArgsConstructor
 public class JwtTokenProvider {
-
-    private final SecretKey key;
+    private final JwtProperties jwtProperties;
+    private SecretKey key;
     private final long accessTokenTtlMs;
 
+    /*
     public JwtTokenProvider(String secret, long accessTokenTtlMs) {
         // ⚠️ HS256은 secret이 충분히 길어야 함(최소 32바이트 권장)
         this.key = Keys.hmacShaKeyFor(secret.getBytes(StandardCharsets.UTF_8));
         this.accessTokenTtlMs = accessTokenTtlMs;
+    }
+     */
+    @PostConstruct
+    public void init() {
+        String secret = jwtProperties.getSecret();
+        this.key = Keys.hmacShaKeyFor(secret.getBytes(StandardCharsets.UTF_8));
     }
 
     public String createAccessToken(String email) {

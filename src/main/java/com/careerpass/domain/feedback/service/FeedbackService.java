@@ -245,6 +245,7 @@ public class FeedbackService {
                     0L, // answerId는 여기서는 사용하지 않음
                     meta.questionText(),
                     transcript,
+                    meta.interviewDuration(),
                     meta.resumeContent(),
                     metaDto
             );
@@ -263,10 +264,6 @@ public class FeedbackService {
                     transcript, // ⬅️ STT 텍스트를 첫 번째 필드에 채움
                     rawAnalysisResult.score(),
                     rawAnalysisResult.timeMs(),
-                    rawAnalysisResult.fluency(),
-                    rawAnalysisResult.contentDepth(),
-                    rawAnalysisResult.structure(),
-                    rawAnalysisResult.fillerCount(),
                     rawAnalysisResult.improvements(),
                     rawAnalysisResult.strengths(),
                     rawAnalysisResult.risks()
@@ -429,6 +426,7 @@ public class FeedbackService {
                 dispatch.answerId(),
                 cleanedQuestionText,
                 cleanedTranscript,
+                dispatch.interviewDuration(),
                 cleanedResumeContent,
                 dispatch.meta()
         );
@@ -503,12 +501,6 @@ public class FeedbackService {
                                 "transcript", finalResult.transcript(),
                                 "timeMs", finalResult.timeMs(),
                                 "score", finalResult.score(),
-                                "metrics", Map.of(
-                                        "fluency", finalResult.fluency(),
-                                        "contentDepth", finalResult.contentDepth(),
-                                        "structure", finalResult.structure(),
-                                        "fillerCount", finalResult.fillerCount()
-                                ),
                                 "strengths", finalResult.strengths(),
                                 "improvements", finalResult.improvements(),
                                 "risks", finalResult.risks()

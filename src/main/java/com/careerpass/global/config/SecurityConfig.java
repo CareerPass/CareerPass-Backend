@@ -2,6 +2,7 @@ package com.careerpass.global.config;
 
 import com.careerpass.domain.user.service.UserService;
 import com.careerpass.global.auth.jwt.JwtAuthenticationFilter;
+import com.careerpass.global.auth.jwt.JwtProperties;
 import com.careerpass.global.auth.jwt.JwtTokenProvider;
 import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletResponse;
@@ -38,13 +39,13 @@ public class SecurityConfig {
     private final UserService userService;
 
     @Bean
-    public JwtTokenProvider jwtTokenProvider() {
-        String secret = System.getenv("JWT_SECRET");
+    public JwtTokenProvider jwtTokenProvider(JwtProperties jwtProperties) {
+        String secret = jwtProperties.getSecret();
         if (secret == null || secret.length() < 32) {
             // 🔒 배포 기준: 시크릿 없으면 서버 뜨면 안 됨 (사고 방지)
             throw new IllegalStateException("JWT_SECRET is missing or too short (min 32 chars).");
         }
-        return new JwtTokenProvider(secret, ACCESS_TOKEN_TTL_MS);
+        return new JwtTokenProvider(jwtProperties, ACCESS_TOKEN_TTL_MS);
     }
 
     @Bean
@@ -77,10 +78,11 @@ public class SecurityConfig {
                         ).permitAll()
 
                         // ✅ 로그인 된 사용자만 접근 가능
-                        .requestMatchers("/me").authenticated()
-                        .requestMatchers("/api/**").authenticated()
+                        //.requestMatchers("/me").authenticated()
+                        //.requestMatchers("/api/**").authenticated()
 
-                        .anyRequest().authenticated()
+                        //.anyRequest().authenticated()
+                        .anyRequest().permitAll()
                 )
 
                 // 폼 로그인/Basic 인증 사용 안 함

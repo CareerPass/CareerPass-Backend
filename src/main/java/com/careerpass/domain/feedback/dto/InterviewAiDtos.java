@@ -20,7 +20,8 @@ public class InterviewAiDtos {
             Long questionId,
             String questionText,   // 질문 텍스트
             String resumeContent,  // 이력서/자기소개서 내용
-            String jobApplied      // 직무 정보 (InterviewMetaDto 구성용)
+            String jobApplied,      // 직무 정보 (InterviewMetaDto 구성용)
+            Long interviewDuration
     ) {}
 
     // 💡 1-2. STT 서버 응답 DTO (voice_ai.SttResult와 매핑)
@@ -33,6 +34,7 @@ public class InterviewAiDtos {
             Long answerId,
             String questionText,
             String transcript,
+            Long interviewDuration,
             String resumeContent,
             InterviewMetaDto meta
     ) {}
@@ -41,10 +43,6 @@ public class InterviewAiDtos {
             String transcript,
             Integer score,
             Long timeMs,
-            Integer fluency,
-            Integer contentDepth,
-            Integer structure,
-            Integer fillerCount,
             List<String> improvements,
             List<String> strengths,
             List<String> risks

@@ -57,7 +57,7 @@ public class QuestionGenService {
         AiQuestionRequest aiReq = new AiQuestionRequest(
                 info.major(),
                 info.jobTitle(),
-                req.coverLetter()
+                cleanedCoverLetter
         );
 
         // 3) Flask 질문 생성 서버 호출
