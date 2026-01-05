@@ -138,7 +138,8 @@ public class FeedbackController {
                 meta.questionId(),
                 meta.questionText(),
                 meta.resumeContent(),
-                meta.jobApplied()
+                meta.jobApplied(),
+                meta.interviewDuration()
         );
 
         InterviewAiDtos.AnswerAnalysisResultDto result = feedbackService.processAnswerAudio(userId, fixedMeta, file);

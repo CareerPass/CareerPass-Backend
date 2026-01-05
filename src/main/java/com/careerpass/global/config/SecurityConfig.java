@@ -2,6 +2,7 @@ package com.careerpass.global.config;
 
 import com.careerpass.domain.user.service.UserService;
 import com.careerpass.global.auth.jwt.JwtAuthenticationFilter;
+import com.careerpass.global.auth.jwt.JwtProperties;
 import com.careerpass.global.auth.jwt.JwtTokenProvider;
 import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletResponse;
@@ -36,15 +37,11 @@ public class SecurityConfig {
     private static final long ACCESS_TOKEN_TTL_MS = 1000L * 60 * 60; // 1시간
 
     private final UserService userService;
+    private final JwtProperties jwtProperties;
 
     @Bean
     public JwtTokenProvider jwtTokenProvider() {
-        String secret = System.getenv("JWT_SECRET");
-        if (secret == null || secret.length() < 32) {
-            // 🔒 배포 기준: 시크릿 없으면 서버 뜨면 안 됨 (사고 방지)
-            throw new IllegalStateException("JWT_SECRET is missing or too short (min 32 chars).");
-        }
-        return new JwtTokenProvider(secret, ACCESS_TOKEN_TTL_MS);
+        return new JwtTokenProvider(jwtProperties, ACCESS_TOKEN_TTL_MS);
     }
 
     @Bean
@@ -77,10 +74,11 @@ public class SecurityConfig {
                         ).permitAll()
 
                         // ✅ 로그인 된 사용자만 접근 가능
-                        .requestMatchers("/me").authenticated()
-                        .requestMatchers("/api/**").authenticated()
+                        //.requestMatchers("/me").authenticated()
+                        //.requestMatchers("/api/**").authenticated()
 
-                        .anyRequest().authenticated()
+                        //.anyRequest().authenticated()
+                        .anyRequest().permitAll()
                 )
 
                 // 폼 로그인/Basic 인증 사용 안 함
@@ -118,6 +116,7 @@ public class SecurityConfig {
                         .failureHandler((request, response, exception) -> {
                             // ✅ 실패 시 /login?error 같은 스프링 기본 경로로 보내지 말고,
                             // 우리가 통제 가능한 곳으로 보냄
+                            System.out.println("OAuth2 Login Failed: " + exception.getMessage());
                             response.sendRedirect(FRONT_BASE_URL + "/?login=fail");
                         })
                 )
