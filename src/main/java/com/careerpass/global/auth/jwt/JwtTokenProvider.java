@@ -9,7 +9,6 @@ import javax.crypto.SecretKey;
 import java.nio.charset.StandardCharsets;
 import java.util.Date;
 
-@RequiredArgsConstructor
 public class JwtTokenProvider {
     private final JwtProperties jwtProperties;
     private SecretKey key;
@@ -22,9 +21,14 @@ public class JwtTokenProvider {
         this.accessTokenTtlMs = accessTokenTtlMs;
     }
      */
-    @PostConstruct
-    public void init() {
+    public JwtTokenProvider(JwtProperties jwtProperties, long accessTokenTtlMs) {
+        this.jwtProperties = jwtProperties;
+        this.accessTokenTtlMs = accessTokenTtlMs;
+
         String secret = jwtProperties.getSecret();
+        if (secret == null || secret.length() < 32) {
+            throw new IllegalArgumentException("JWT Secret is too short or null");
+        }
         this.key = Keys.hmacShaKeyFor(secret.getBytes(StandardCharsets.UTF_8));
     }
 

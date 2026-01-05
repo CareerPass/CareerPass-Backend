@@ -37,14 +37,10 @@ public class SecurityConfig {
     private static final long ACCESS_TOKEN_TTL_MS = 1000L * 60 * 60; // 1시간
 
     private final UserService userService;
+    private final JwtProperties jwtProperties;
 
     @Bean
-    public JwtTokenProvider jwtTokenProvider(JwtProperties jwtProperties) {
-        String secret = jwtProperties.getSecret();
-        if (secret == null || secret.length() < 32) {
-            // 🔒 배포 기준: 시크릿 없으면 서버 뜨면 안 됨 (사고 방지)
-            throw new IllegalStateException("JWT_SECRET is missing or too short (min 32 chars).");
-        }
+    public JwtTokenProvider jwtTokenProvider() {
         return new JwtTokenProvider(jwtProperties, ACCESS_TOKEN_TTL_MS);
     }
 
@@ -120,6 +116,7 @@ public class SecurityConfig {
                         .failureHandler((request, response, exception) -> {
                             // ✅ 실패 시 /login?error 같은 스프링 기본 경로로 보내지 말고,
                             // 우리가 통제 가능한 곳으로 보냄
+                            System.out.println("OAuth2 Login Failed: " + exception.getMessage());
                             response.sendRedirect(FRONT_BASE_URL + "/?login=fail");
                         })
                 )
