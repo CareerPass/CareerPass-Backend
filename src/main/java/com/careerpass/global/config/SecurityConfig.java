@@ -4,9 +4,12 @@ import com.careerpass.domain.user.service.UserService;
 import com.careerpass.global.auth.jwt.JwtAuthenticationFilter;
 import com.careerpass.global.auth.jwt.JwtProperties;
 import com.careerpass.global.auth.jwt.JwtTokenProvider;
+import com.careerpass.global.auth.oauth.OAuthCodeService;
 import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.Customizer;
@@ -18,17 +21,18 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
-import org.springframework.web.servlet.config.annotation.CorsRegistry;
-import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.util.List;
 
 @Configuration
 @RequiredArgsConstructor
+@Slf4j
 public class SecurityConfig {
 
-    // ✅ 배포/개발 환경에 맞게 바꾸기 (우선 로컬)
-    private static final String FRONT_BASE_URL = "https://careerpass.duckdns.org";
+    @Value("${app.frontend-url:http://localhost:3000}")
+    private String frontBaseUrl;
 
     // ✅JWT 토큰이 담긴 쿠키 이름
     private static final String ACCESS_TOKEN_COOKIE = "access_token";
@@ -38,6 +42,7 @@ public class SecurityConfig {
 
     private final UserService userService;
     private final JwtProperties jwtProperties;
+    private final OAuthCodeService oAuthCodeService;
 
     @Bean
     public JwtTokenProvider jwtTokenProvider() {
@@ -50,7 +55,7 @@ public class SecurityConfig {
                 .cors(Customizer.withDefaults())
                 .csrf(csrf -> csrf.disable())
 
-                // ✅ 세션 사용 안 함 (토큰 방식)
+                // ✅ OAuth2용으로 필요 시 세션 생성
                 .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED))
 
                 // 🔐 인가 설정
@@ -68,17 +73,18 @@ public class SecurityConfig {
                                 "/login/oauth2/**",
                                 // 로그아웃 성공 엔드포인트
                                 "/logout-success",
+                                // OAuth 코드 교환
+                                "/auth/token",
                                 // ✅ actuator 임시 오픈(원인 추적용)
                                 "/actuator/health",
                                 "/actuator/mappings"
                         ).permitAll()
 
                         // ✅ 로그인 된 사용자만 접근 가능
-                        //.requestMatchers("/me").authenticated()
-                        //.requestMatchers("/api/**").authenticated()
+                        .requestMatchers("/me").authenticated()
+                        .requestMatchers("/api/**").authenticated()
 
-                        //.anyRequest().authenticated()
-                        .anyRequest().permitAll()
+                        .anyRequest().authenticated()
                 )
 
                 // 폼 로그인/Basic 인증 사용 안 함
@@ -111,13 +117,18 @@ public class SecurityConfig {
                             cookie.setMaxAge((int) (ACCESS_TOKEN_TTL_MS / 1000));
 
                             response.addCookie(cookie);
-                            response.sendRedirect(FRONT_BASE_URL + "/");
+                            String code = oAuthCodeService.issue(email);
+                            String redirectUrl = frontBaseUrl + "/auth/callback?code=" +
+                                    URLEncoder.encode(code, StandardCharsets.UTF_8);
+                            log.info("OAuth2 success: email={}, redirect={}", email, redirectUrl);
+                            response.sendRedirect(redirectUrl);
                         })
                         .failureHandler((request, response, exception) -> {
                             // ✅ 실패 시 /login?error 같은 스프링 기본 경로로 보내지 말고,
                             // 우리가 통제 가능한 곳으로 보냄
-                            System.out.println("OAuth2 Login Failed: " + exception.getMessage());
-                            response.sendRedirect(FRONT_BASE_URL + "/?login=fail");
+                            String redirectUrl = frontBaseUrl + "/auth/callback?error=login_failed";
+                            log.info("OAuth2 Login Failed: {}, redirect={}", exception.getMessage(), redirectUrl);
+                            response.sendRedirect(redirectUrl);
                         })
                 )
 

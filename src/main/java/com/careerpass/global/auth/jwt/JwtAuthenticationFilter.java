@@ -30,7 +30,10 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             FilterChain filterChain
     ) throws ServletException, IOException {
 
-        String token = extractTokenFromCookie(request, cookieName);
+        String token = resolveFromAuthorizationHeader(request);
+        if (token == null) {
+            token = extractTokenFromCookie(request, cookieName);
+        }
 
         if (token != null && tokenProvider.validate(token)) {
             String email = tokenProvider.getEmail(token);
@@ -43,6 +46,15 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         }
 
         filterChain.doFilter(request, response);
+    }
+
+    private String resolveFromAuthorizationHeader(HttpServletRequest request) {
+        String header = request.getHeader("Authorization");
+        if (header == null || !header.startsWith("Bearer ")) {
+            return null;
+        }
+        String value = header.substring(7).trim();
+        return value.isEmpty() ? null : value;
     }
 
     private String extractTokenFromCookie(HttpServletRequest request, String cookieName) {
