@@ -10,6 +10,10 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
+import java.security.Principal;
+import jakarta.validation.Valid;
+import org.springframework.http.HttpStatus;
+import org.springframework.web.server.ResponseStatusException;
 
 /**
  * UserController
@@ -50,17 +54,38 @@ public class UserController {
      * - nickname, major, targetJob만 수정 가능 (email 수정 불가)
      * - 프론트는 일반적으로:
      *   1) 먼저 /me로 내 프로필 조회 (MeController)
-     *   2) 응답에서 id를 꺼내서 /api/users/{id}/profile 로 PATCH 요청
+     *   2) /api/users/me/profile 로 PATCH 요청 (권장)
      */
     @Operation(
-            summary = "학습프로필 수정",
-            description = "nickname, major, targetJob만 수정 가능 (email은 항상 read-only)"
+            summary = "[Deprecated] 학습프로필 수정 (id 필요)",
+            description = "레거시/내부용. 프론트는 /api/users/me/profile 사용",
+            deprecated = true
     )
+    @Deprecated
     @PatchMapping("/{id}/profile")
     public ResponseEntity<LearningProfileResponse> updateUserProfile(
             @PathVariable @Positive(message = "id는 양수여야 합니다.") Long id,
-            @RequestBody UpdateProfileRequest req
+            @RequestBody @Valid UpdateProfileRequest req,
+            Principal principal
     ) {
-        return ResponseEntity.ok(userService.updateProfile(id, req));
+        if (principal == null || principal.getName() == null || principal.getName().isBlank()) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Unauthorized");
+        }
+        return ResponseEntity.ok(userService.updateProfileOwnedByEmail(id, principal.getName(), req));
+    }
+
+    @Operation(
+            summary = "내 학습프로필 수정",
+            description = "프론트 기본 경로. nickname, major, targetJob만 수정 가능 (email은 항상 read-only)"
+    )
+    @PatchMapping("/me/profile")
+    public ResponseEntity<LearningProfileResponse> updateMyProfile(
+            @RequestBody @Valid UpdateProfileRequest req,
+            Principal principal
+    ) {
+        if (principal == null || principal.getName() == null || principal.getName().isBlank()) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Unauthorized");
+        }
+        return ResponseEntity.ok(userService.updateProfileOwnedByEmail(principal.getName(), req));
     }
 }

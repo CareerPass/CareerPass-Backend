@@ -2,15 +2,19 @@ package com.careerpass.domain.user.service;
 
 import com.careerpass.domain.feedback.entity.FeedbackType;
 import com.careerpass.domain.feedback.repository.FeedbackRepository;
+import com.careerpass.domain.feedback.repository.InterviewSessionRepository;
 import com.careerpass.domain.user.dto.LearningProfileResponse;
 import com.careerpass.domain.user.dto.UpdateProfileRequest;
 import com.careerpass.domain.user.entity.SocialType;
 import com.careerpass.domain.user.entity.User;
 import com.careerpass.domain.user.exception.UserNotFoundException;
 import com.careerpass.domain.user.repository.UserRepository;
+import org.springframework.dao.DataIntegrityViolationException;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.util.List;
 import java.util.UUID;
@@ -22,6 +26,7 @@ public class UserService {
 
     private final UserRepository userRepository;
     private final FeedbackRepository feedbackRepository;
+    private final InterviewSessionRepository interviewSessionRepository;
 
     /**
      * [프로필 수정]
@@ -32,13 +37,13 @@ public class UserService {
         User user = userRepository.findById(id)
                 .orElseThrow(() -> new UserNotFoundException(id));
 
-        if (req.nickname() != null) {
+        if (isNotBlank(req.nickname())) {
             user.setNickname(req.nickname());
         }
-        if (req.major() != null) {
+        if (isNotBlank(req.major())) {
             user.setMajor(req.major());
         }
-        if (req.targetJob() != null) {
+        if (isNotBlank(req.targetJob())) {
             user.setTargetJob(req.targetJob());
         }
 
@@ -54,6 +59,27 @@ public class UserService {
         return toLearningProfileResponse(user);
     }
 
+    public LearningProfileResponse updateProfileOwnedByEmail(Long id, String email, UpdateProfileRequest req) {
+        if (email == null || email.isBlank()) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Unauthorized");
+        }
+        User requester = userRepository.findByEmail(email)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Unauthorized"));
+        if (!requester.getId().equals(id)) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Forbidden");
+        }
+        return updateProfile(id, req);
+    }
+
+    public LearningProfileResponse updateProfileOwnedByEmail(String email, UpdateProfileRequest req) {
+        if (email == null || email.isBlank()) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Unauthorized");
+        }
+        User requester = userRepository.findByEmail(email)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Unauthorized"));
+        return updateProfileOwnedByEmail(requester.getId(), email, req);
+    }
+
     /**
      * [내 프로필 수정 (JWT 기반)]
      * - JWT principal(email)로 사용자 조회 후
@@ -64,9 +90,9 @@ public class UserService {
                 .orElseThrow(() -> new IllegalArgumentException("User not found by email: " + email));
 
         // 기존 값 유지 + 요청 값만 덮어쓰기
-        String nextNickname = (req.nickname() != null) ? req.nickname() : user.getNickname();
-        String nextMajor = (req.major() != null) ? req.major() : user.getMajor();
-        String nextTargetJob = (req.targetJob() != null) ? req.targetJob() : user.getTargetJob();
+        String nextNickname = coalesceNonBlank(req.nickname(), user.getNickname());
+        String nextMajor = coalesceNonBlank(req.major(), user.getMajor());
+        String nextTargetJob = coalesceNonBlank(req.targetJob(), user.getTargetJob());
 
         // 엔티티 업데이트 로직 사용
         user.updateProfile(nextNickname, nextMajor, nextTargetJob);
@@ -148,19 +174,30 @@ public class UserService {
                     if (!user.isProfileCompleted() && name != null && !name.isBlank()) {
                         user.setNickname(name);
                     }
-                    return user;
+                    return saveAndResolve(user, email, googleSub);
                 })
-                .orElseGet(() -> userRepository.save(
-                        User.builder()
-                                .email(email)
-                                .nickname((name == null || name.isBlank()) ? email.split("@")[0] : name)
-                                .major(null)
-                                .targetJob(null)
-                                .profileCompleted(false)
-                                .socialType(SocialType.GOOGLE)
-                                .socialNumber(googleSub) // ✅ 핵심
-                                .build()
-                ));
+                .orElseGet(() -> userRepository.findByEmail(email)
+                        .map(user -> {
+                            // 기존 이메일 유저가 있으면 Google 식별자를 연결해서 중복 생성 방지
+                            user.setSocialType(SocialType.GOOGLE);
+                            user.setSocialNumber(googleSub);
+                            if (!user.isProfileCompleted() && name != null && !name.isBlank()) {
+                                user.setNickname(name);
+                            }
+                            return saveAndResolve(user, email, googleSub);
+                        })
+                        .orElseGet(() -> {
+                            User newUser = User.builder()
+                                    .email(email)
+                                    .nickname((name == null || name.isBlank()) ? email.split("@")[0] : name)
+                                    .major(null)
+                                    .targetJob(null)
+                                    .profileCompleted(false)
+                                    .socialType(SocialType.GOOGLE)
+                                    .socialNumber(googleSub) // ✅ 핵심
+                                    .build();
+                            return saveAndResolve(newUser, email, googleSub);
+                        }));
     }
 
     /**
@@ -192,6 +229,17 @@ public class UserService {
     }
 
     private List<LearningProfileResponse.FeedbackSummary> findFeedbackSummaries(Long userId, FeedbackType type) {
+        if (type == FeedbackType.INTERVIEW) {
+            return interviewSessionRepository.findByUserIdOrderByCreatedAtDesc(userId)
+                    .stream()
+                    .map(session -> LearningProfileResponse.FeedbackSummary.builder()
+                            .id(session.getId())
+                            .title("면접 " + session.getId())
+                            .totalScore(session.getAverageScore() == null ? null : Math.round(session.getAverageScore()))
+                            .createdAt(session.getCreatedAt())
+                            .build())
+                    .toList();
+        }
         return feedbackRepository.findByUserIdAndFeedbackTypeOrderByCreatedAtDesc(userId, type)
                 .stream()
                 .map(f -> LearningProfileResponse.FeedbackSummary.builder()
@@ -201,5 +249,31 @@ public class UserService {
                         .createdAt(f.getCreatedAt())
                         .build())
                 .toList();
+    }
+
+    private User saveAndResolve(User user, String email, String googleSub) {
+        try {
+            return userRepository.saveAndFlush(user);
+        } catch (DataIntegrityViolationException e) {
+            return resolveAfterConstraintViolation(email, googleSub, e);
+        }
+    }
+
+    private User resolveAfterConstraintViolation(
+            String email,
+            String googleSub,
+            DataIntegrityViolationException e
+    ) {
+        return userRepository.findBySocialTypeAndSocialNumber(SocialType.GOOGLE, googleSub)
+                .or(() -> userRepository.findByEmail(email))
+                .orElseThrow(() -> e);
+    }
+
+    private boolean isNotBlank(String value) {
+        return value != null && !value.isBlank();
+    }
+
+    private String coalesceNonBlank(String value, String fallback) {
+        return isNotBlank(value) ? value : fallback;
     }
 }

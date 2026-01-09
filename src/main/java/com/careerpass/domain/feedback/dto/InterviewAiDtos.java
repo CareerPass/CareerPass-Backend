@@ -40,11 +40,14 @@ public class InterviewAiDtos {
     ) {}
 
     public record AnswerAnalysisResultDto(
+            String sttStatus,
             String transcript,
             Integer score,
             Long timeMs,
             List<String> improvements,
             List<String> strengths,
-            List<String> risks
+            List<String> risks,
+            Long interviewId,
+            String audioUrl
     ) {}
 }

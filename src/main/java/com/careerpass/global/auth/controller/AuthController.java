@@ -39,7 +39,7 @@ public class AuthController {
         }
 
         return oAuthCodeService.consume(request.code())
-                .map(email -> {
+                .<ResponseEntity<?>>map(email -> {
                     String token = jwtTokenProvider.createAccessToken(email);
                     log.info("Token exchange success for email={}", email);
                     return ResponseEntity.ok(new TokenResponse(token, "Bearer", 3600));
