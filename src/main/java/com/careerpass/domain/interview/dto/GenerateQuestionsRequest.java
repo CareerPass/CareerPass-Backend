@@ -1,6 +1,7 @@
 package com.careerpass.domain.interview.dto;
 
 import io.swagger.v3.oas.annotations.media.Schema;
+import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 
 /**
@@ -15,8 +16,9 @@ public record GenerateQuestionsRequest(
         @Schema(description = "유저 ID", example = "10")
         Long userId,
 
+        @NotBlank(message = "resumeContent는 필수입니다.")
         @Schema(
-                description = "지원자의 자기소개서 본문(선택). 비어 있으면 학습 프로필 정보만으로 질문 생성",
+                description = "지원자의 자기소개서 본문",
                 example = "저는 백엔드 개발자로 성장하기 위해..."
         )
         String coverLetter

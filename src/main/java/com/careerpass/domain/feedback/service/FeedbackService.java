@@ -2,13 +2,18 @@ package com.careerpass.domain.feedback.service;
 
 import com.careerpass.domain.feedback.dto.FeedbackDtos.CreateRequest;
 import com.careerpass.domain.feedback.dto.FeedbackDtos.Response;
+import com.careerpass.domain.feedback.dto.FeedbackDtos.TitleResponse;
 import com.careerpass.domain.feedback.dto.InterviewAiDtos;
 import com.careerpass.domain.feedback.dto.IntroductionAiDtos.IntroFeedbackDispatch;
 import com.careerpass.domain.feedback.dto.IntroductionAiDtos.IntroFeedbackRequest;
 import com.careerpass.domain.feedback.dto.IntroductionAiDtos.IntroFeedbackResponse;
 import com.careerpass.domain.feedback.entity.Feedback;
 import com.careerpass.domain.feedback.entity.FeedbackType;
+import com.careerpass.domain.feedback.entity.InterviewSession;
+import com.careerpass.domain.feedback.entity.SessionStatus;
 import com.careerpass.domain.feedback.repository.FeedbackRepository;
+import com.careerpass.domain.feedback.repository.InterviewSessionRepository;
+import com.careerpass.global.aws.service.S3Service;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -27,10 +32,11 @@ import org.springframework.web.server.ResponseStatusException;
 import reactor.core.publisher.Mono;
 
 import java.time.Duration;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeoutException;
-import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -38,6 +44,9 @@ import java.util.stream.Collectors;
 public class FeedbackService {
 
     private final FeedbackRepository feedbackRepository;
+    private final InterviewSessionRepository interviewSessionRepository;
+    private final InterviewSessionService interviewSessionService;
+    private final S3Service s3Service;
 
     // 🔹 파이썬 Resume / Interview AI 서버 WebClient
     private final WebClient aiWebClient;
@@ -46,9 +55,10 @@ public class FeedbackService {
     // 피드백 생성
     @Transactional
     public Response create(CreateRequest req) {
+        String title = generateDefaultTitle(req.userId(), req.feedbackType());
         Feedback feedback = Feedback.builder()
                 .userId(req.userId())
-                .title(req.title())
+                .title(title)
                 .feedbackType(req.feedbackType())
                 .totalScore(req.totalScore())
                 .transcript(req.transcript())
@@ -88,7 +98,7 @@ public class FeedbackService {
 
         Feedback feedback = Feedback.builder()
                 .userId(userId)
-                .title("자기소개서 피드백")
+                .title(generateDefaultTitle(userId, FeedbackType.INTRODUCTION))
                 .feedbackType(FeedbackType.INTRODUCTION)
                 .totalScore(0L)
                 .transcript(null)
@@ -107,6 +117,27 @@ public class FeedbackService {
         Feedback f = feedbackRepository.findById(id)
                 .orElseThrow(() -> new com.careerpass.domain.feedback.exception.FeedbackNotFoundException(id));
         return toDto(f);
+    }
+
+    @Transactional
+    public TitleResponse updateTitle(Long id, Long userId, String title) {
+        Feedback f = feedbackRepository.findById(id)
+                .orElseThrow(() -> new com.careerpass.domain.feedback.exception.FeedbackNotFoundException(id));
+        if (!f.getUserId().equals(userId)) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Forbidden");
+        }
+        f.setTitle(title);
+        return new TitleResponse(f.getId(), f.getTitle());
+    }
+
+    @Transactional
+    public void delete(Long id, Long userId) {
+        Feedback f = feedbackRepository.findById(id)
+                .orElseThrow(() -> new com.careerpass.domain.feedback.exception.FeedbackNotFoundException(id));
+        if (!f.getUserId().equals(userId)) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Forbidden");
+        }
+        feedbackRepository.delete(f);
     }
 
     // 자기소개서 기반 피드백 리스트 조회
@@ -135,9 +166,15 @@ public class FeedbackService {
     // 본인 면접 요약 리스트
     @Transactional(readOnly = true)
     public List<com.careerpass.domain.feedback.dto.FeedbackDtos.SummaryResponse> listMyInterviewSummaries(Long userId) {
-        return feedbackRepository.findByUserIdAndFeedbackTypeOrderByCreatedAtDesc(userId, FeedbackType.INTERVIEW)
+        return interviewSessionRepository.findByUserIdAndStatusOrderByCreatedAtDesc(userId, SessionStatus.COMPLETED)
                 .stream()
-                .map(this::toSummaryDto)
+                .map(session -> new com.careerpass.domain.feedback.dto.FeedbackDtos.SummaryResponse(
+                        session.getId(),
+                        session.getTitle(),
+                        FeedbackType.INTERVIEW,
+                        session.getAverageScore() == null ? null : Math.round(session.getAverageScore()),
+                        session.getCreatedAt()
+                ))
                 .toList();
     }
 
@@ -209,38 +246,53 @@ public class FeedbackService {
                 (audioFile != null ? audioFile.getSize() : -1L)
         );
 
-        try {
-            if (audioFile == null || audioFile.isEmpty()) {
-                throw new ResponseStatusException(
-                        HttpStatus.BAD_REQUEST,
-                        "INTERVIEW_AI_ERROR: 업로드된 면접 음성 파일이 비어 있습니다."
-                );
-            }
-
-            // 1. STT 서버 호출 및 텍스트 변환
-            String transcript = callSttServer(userId, meta, audioFile);
-
-            if (transcript == null || transcript.isBlank()) {
-                throw new ResponseStatusException(
-                        HttpStatus.INTERNAL_SERVER_ERROR,
-                        "INTERVIEW_AI_ERROR: STT 결과가 비어 있습니다."
-                );
-            }
-
-            log.info("[INTERVIEW_AI] STT 텍스트 변환 완료. 길이: {}자. AI 분석을 시작합니다.",
-                    transcript.length());
-
-            // 2. 최종 DTO 구성을 위한 데이터 준비
-            // ⚠️ interviewId 가 null 이면 파이썬에는 0으로 보냄 (Pydantic 422 방지)
-            Long safeInterviewId = (meta.interviewId() != null) ? meta.interviewId() : 0L;
-
-            InterviewAiDtos.InterviewMetaDto metaDto = new InterviewAiDtos.InterviewMetaDto(
-                    safeInterviewId,
-                    userId,
-                    meta.jobApplied(),
-                    meta.questionId()
+        if (audioFile == null || audioFile.isEmpty()) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "INTERVIEW_AI_ERROR: 업로드된 면접 음성 파일이 비어 있습니다."
             );
+        }
 
+        String transcript = null;
+        String sttStatus = "FAILED";
+        try {
+            InterviewAiDtos.SttResultDto sttResult = callSttServer(userId, meta, audioFile);
+            boolean sttSuccess = sttResult != null
+                    && sttResult.answerText() != null
+                    && !sttResult.answerText().isBlank();
+            if (sttSuccess) {
+                transcript = sttResult.answerText();
+                sttStatus = "SUCCESS";
+            }
+        } catch (Exception e) {
+            log.warn("[INTERVIEW_AI] STT 실패. interviewId={}, userId={}, questionId={}",
+                    meta.interviewId(), userId, meta.questionId(), e);
+        }
+
+        String audioUrl = null;
+        try {
+            audioUrl = s3Service.storeFile(audioFile);
+        } catch (Exception e) {
+            log.warn("[INTERVIEW_AI] 오디오 S3 업로드 실패. interviewId={}, userId={}, questionId={}",
+                    meta.interviewId(), userId, meta.questionId(), e);
+        }
+
+        log.info("[INTERVIEW_AI] STT 텍스트 변환 완료. 길이: {}자. AI 분석을 시작합니다.",
+                transcript.length());
+
+        // 2. 최종 DTO 구성을 위한 데이터 준비
+        // ⚠️ interviewId 가 null 이면 파이썬에는 0으로 보냄 (Pydantic 422 방지)
+        Long safeInterviewId = (meta.interviewId() != null) ? meta.interviewId() : 0L;
+
+        InterviewAiDtos.InterviewMetaDto metaDto = new InterviewAiDtos.InterviewMetaDto(
+                safeInterviewId,
+                userId,
+                meta.jobApplied(),
+                meta.questionId()
+        );
+
+        InterviewAiDtos.AnswerAnalysisResultDto rawAnalysisResult = null;
+        if ("SUCCESS".equals(sttStatus)) {
             InterviewAiDtos.AnswerDispatchDto dispatchForAi = new InterviewAiDtos.AnswerDispatchDto(
                     0L, // answerId는 여기서는 사용하지 않음
                     meta.questionText(),
@@ -250,56 +302,49 @@ public class FeedbackService {
                     metaDto
             );
 
-            // 3. AI 피드백 서버 호출
-            InterviewAiDtos.AnswerAnalysisResultDto rawAnalysisResult = runInterviewAnalysis(dispatchForAi);
-
-            if (rawAnalysisResult == null) {
-                throw new ResponseStatusException(
-                        HttpStatus.INTERNAL_SERVER_ERROR,
-                        "INTERVIEW_AI_ERROR: 면접 AI 분석 결과가 null 입니다."
-                );
+            // 3. AI 피드백 서버 호출 (실패해도 저장은 진행)
+            try {
+                rawAnalysisResult = runInterviewAnalysis(dispatchForAi);
+            } catch (Exception e) {
+                log.warn("[INTERVIEW_AI] 면접 AI 분석 실패. interviewId={}, userId={}, questionId={}",
+                        meta.interviewId(), userId, meta.questionId(), e);
             }
-
-            InterviewAiDtos.AnswerAnalysisResultDto finalResult = new InterviewAiDtos.AnswerAnalysisResultDto(
-                    transcript, // ⬅️ STT 텍스트를 첫 번째 필드에 채움
-                    rawAnalysisResult.score(),
-                    rawAnalysisResult.timeMs(),
-                    rawAnalysisResult.improvements(),
-                    rawAnalysisResult.strengths(),
-                    rawAnalysisResult.risks()
-            );
-
-            log.info("[INTERVIEW_AI] AI 분석 완료. 점수: {}. DB 저장을 시작합니다.", finalResult.score());
-
-            // 4. 피드백 결과 DB 저장 (단일 질문이지만 sectionFeedback 스키마에 맞게 직렬화)
-            String overallFeedback = formatFeedbackText(finalResult);
-            saveInterviewFeedback(userId, meta, finalResult, overallFeedback);
-
-            log.info("[INTERVIEW_AI] DB 저장 완료. 최종 처리를 마칩니다.");
-
-            return finalResult;
-
-        } catch (ResponseStatusException e) {
-            // 이미 의미 있는 메시지를 가진 예외는 그대로 전달
-            log.error("[INTERVIEW_AI] ResponseStatusException 발생: status={}, reason={}",
-                    e.getStatusCode(), e.getReason(), e);
-            throw e;
-        } catch (Exception e) {
-            // 나머지는 공통 인터뷰 AI 에러로 래핑
-            log.error("[INTERVIEW_AI] 처리 중 예외 발생 - interviewId={}, userId={}, questionId={}",
-                    meta.interviewId(), userId, meta.questionId(), e);
-            throw new ResponseStatusException(
-                    HttpStatus.INTERNAL_SERVER_ERROR,
-                    "INTERVIEW_AI_ERROR: " + e.getMessage(),
-                    e
-            );
+        } else {
+            log.warn("[INTERVIEW_AI] STT 실패로 AI 분석을 생략합니다. interviewId={}, userId={}, questionId={}",
+                    meta.interviewId(), userId, meta.questionId());
         }
+
+        InterviewSession session = interviewSessionService.getSessionOwned(userId, meta.interviewId());
+
+        InterviewAiDtos.AnswerAnalysisResultDto finalResult = new InterviewAiDtos.AnswerAnalysisResultDto(
+                sttStatus,
+                transcript, // ⬅️ STT 텍스트를 첫 번째 필드에 채움
+                rawAnalysisResult != null ? rawAnalysisResult.score() : null,
+                rawAnalysisResult != null ? rawAnalysisResult.timeMs() : null,
+                rawAnalysisResult != null && rawAnalysisResult.improvements() != null
+                        ? rawAnalysisResult.improvements() : List.of(),
+                rawAnalysisResult != null && rawAnalysisResult.strengths() != null
+                        ? rawAnalysisResult.strengths() : List.of(),
+                rawAnalysisResult != null && rawAnalysisResult.risks() != null
+                        ? rawAnalysisResult.risks() : List.of(),
+                session.getId(),
+                audioUrl
+        );
+
+        log.info("[INTERVIEW_AI] AI 분석 완료. 점수: {}. DB 저장을 시작합니다.", finalResult.score());
+
+        // 4. 면접 질문별 결과 DB 저장
+        interviewSessionService.saveAnswer(session, meta, finalResult, audioUrl);
+
+        log.info("[INTERVIEW_AI] DB 저장 완료. 최종 처리를 마칩니다.");
+
+        return finalResult;
     }
 
     /**
      * Python STT 서버 (/voice/analyze)를 호출하여 음성 파일을 텍스트로 변환합니다.
      */
-    private String callSttServer(
+    private InterviewAiDtos.SttResultDto callSttServer(
             Long userId,
             InterviewAiDtos.SttRequestMetaDto meta,
             MultipartFile audioFile
@@ -330,6 +375,7 @@ public class FeedbackService {
             }
             builder.part("file", resource, fileMediaType);
 
+            log.info("[STT] sending audio to STT server...");
             InterviewAiDtos.SttResultDto sttResult = aiWebClient.post()
                     .uri("/voice/analyze")
                     .contentType(MediaType.MULTIPART_FORM_DATA)
@@ -338,17 +384,24 @@ public class FeedbackService {
                     .bodyToMono(InterviewAiDtos.SttResultDto.class)
                     .block();
 
+            boolean sttSuccess = sttResult != null
+                    && sttResult.answerText() != null
+                    && !sttResult.answerText().isBlank();
+            log.info("[STT] response: success={}, text='{}'",
+                    sttSuccess,
+                    sttResult != null ? sttResult.answerText() : null);
+
             if (sttResult == null || sttResult.answerText() == null) {
-            log.error("[STT] STT 서버에서 빈 결과를 반환했습니다. meta={}, userId={}", meta, userId);
+                log.error("[STT] STT 서버에서 빈 결과를 반환했습니다. meta={}, userId={}", meta, userId);
                 throw new ResponseStatusException(
-                        HttpStatus.INTERNAL_SERVER_ERROR,
+                    HttpStatus.INTERNAL_SERVER_ERROR,
                         "STT_ERROR: STT 서버가 빈 결과를 반환했습니다."
                 );
             }
 
             log.debug("[STT] STT 서버로부터 결과 수신 완료. 길이={}", sttResult.answerText().length());
 
-            return sttResult.answerText();
+            return sttResult;
 
         } catch (WebClientResponseException ex) {
             log.error("[STT] Python STT 서버 오류 응답: 상태={}, 본문={}, userId={}",
@@ -480,87 +533,6 @@ public class FeedbackService {
     }
 
 
-    /**
-     * AI 분석 결과를 Feedback 엔티티로 변환하여 저장합니다.
-     */
-    private void saveInterviewFeedback(
-            Long userId,
-            InterviewAiDtos.SttRequestMetaDto meta,
-            InterviewAiDtos.AnswerAnalysisResultDto finalResult,
-            String overallFeedback
-    ) {
-        // 단일 질문 결과를 sectionFeedback 스키마에 맞게 직렬화
-        Long totalScore = finalResult.score() != null ? finalResult.score().longValue() : 0L;
-        Long totalTimeMs = finalResult.timeMs();
-
-        String sectionFeedback = toJson(Map.of(
-                "questions", List.of(
-                        Map.of(
-                                "questionId", meta.questionId(),
-                                "questionText", meta.questionText(),
-                                "transcript", finalResult.transcript(),
-                                "timeMs", finalResult.timeMs(),
-                                "score", finalResult.score(),
-                                "strengths", finalResult.strengths(),
-                                "improvements", finalResult.improvements(),
-                                "risks", finalResult.risks()
-                        )
-                ),
-                "summary", Map.of(
-                        "totalScore", totalScore,
-                        "totalTimeMs", totalTimeMs,
-                        "overallFeedback", overallFeedback
-                )
-        ));
-
-        String title = (meta.jobApplied() != null && !meta.jobApplied().isBlank())
-                ? meta.jobApplied() + " 면접 피드백"
-                : "면접 피드백";
-
-        Long safeInterviewId = (meta.interviewId() != null) ? meta.interviewId() : null;
-
-        Feedback feedback = Feedback.builder()
-                .userId(userId)
-                .title(title)
-                .feedbackType(FeedbackType.INTERVIEW)
-                .totalScore(totalScore)
-                .transcript(finalResult.transcript())
-                .feedbackText(overallFeedback)
-                .sectionFeedback(sectionFeedback)
-                .introductionId(null)
-                .interviewId(safeInterviewId)
-                .questionId(meta.questionId())
-                .durationMs(totalTimeMs)
-                .build();
-
-        feedbackRepository.save(feedback);
-    }
-
-    /**
-     * 피드백 리스트들을 읽기 쉬운 하나의 문자열로 포맷팅합니다.
-     */
-    private String formatFeedbackText(InterviewAiDtos.AnswerAnalysisResultDto analysisResult) {
-        StringBuilder sb = new StringBuilder();
-
-        sb.append("--- 개선 사항 (Improvements) ---\n");
-        sb.append(analysisResult.improvements().stream()
-                .map(s -> "* " + s)
-                .collect(Collectors.joining("\n")));
-
-        sb.append("\n\n--- 강점 (Strengths) ---\n");
-        sb.append(analysisResult.strengths().stream()
-                .map(s -> "* " + s)
-                .collect(Collectors.joining("\n")));
-
-        if (analysisResult.risks() != null && !analysisResult.risks().isEmpty()) {
-            sb.append("\n\n--- 위험 요소 (Risks) ---\n");
-            sb.append(analysisResult.risks().stream()
-                    .map(s -> "* " + s)
-                    .collect(Collectors.joining("\n")));
-        }
-
-        return sb.toString();
-    }
 
     private Response toDto(Feedback f) {
         return new Response(
@@ -597,5 +569,18 @@ public class FeedbackService {
         } catch (Exception e) {
             throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "JSON 직렬화 실패", e);
         }
+    }
+
+    private String generateDefaultTitle(Long userId, FeedbackType feedbackType) {
+        long next = feedbackRepository.countByUserIdAndFeedbackType(userId, feedbackType) + 1;
+        String prefix = feedbackType == FeedbackType.INTRODUCTION ? "자기소개서" : "면접";
+        String baseTitle = prefix + " " + next;
+
+        if (feedbackRepository.existsByUserIdAndFeedbackTypeAndTitle(userId, feedbackType, baseTitle)) {
+            String suffix = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMddHHmmss"));
+            return baseTitle + " (" + suffix + ")";
+        }
+
+        return baseTitle;
     }
 }

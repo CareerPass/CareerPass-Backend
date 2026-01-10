@@ -4,6 +4,7 @@ import com.careerpass.domain.interview.dto.GenerateQuestionsRequest;
 import com.careerpass.domain.interview.dto.GenerateQuestionsResponse;
 import com.careerpass.domain.interview.service.QuestionGenService;
 import io.swagger.v3.oas.annotations.Operation;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
@@ -32,7 +33,7 @@ public class QuestionGenController {
     @Operation(summary = "질문 생성 api")
     @PostMapping
     public Mono<ResponseEntity<GenerateQuestionsResponse>> generate(
-            @RequestBody GenerateQuestionsRequest req
+            @RequestBody @Valid GenerateQuestionsRequest req
     ) {
         log.info("📨 질문 생성 요청 도착: userId={}, coverLetter length={}",
                 req.userId(),
