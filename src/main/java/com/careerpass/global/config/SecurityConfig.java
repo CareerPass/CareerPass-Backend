@@ -156,7 +156,7 @@ public class SecurityConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration config = new CorsConfiguration();
-        config.setAllowedOrigins(List.of("http://localhost:3000")); // 프론트 배포 이후 수정 해야함.
+        config.setAllowedOrigins(List.of("https://career-pass-frontend.vercel.app")); // 프론트 배포 이후 수정 해야함.
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"));
         config.setAllowedHeaders(List.of("*"));
         config.setAllowCredentials(true); // ✅ 쿠키 포함 필수
